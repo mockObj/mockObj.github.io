@@ -1,0 +1,81 @@
+---
+const { title, image, subtitle, description, eventTag, date, pageUrl } = Astro.props;
+import ContentHeader from '../components/ContentHeader.astro';
+---
+
+<div class="content-card">
+  <a href={pageUrl}>
+    <div class="content-image">
+      <img src={image} alt={title} />
+    </div>
+  </a>
+    <ContentHeader date={date} eventTag={eventTag} />
+    <p class="content-name">{title}</p>
+    <p class="content-subtitle">{subtitle}</p>
+    <p class="content-description" set:html={description} />
+</div>
+<style>
+  .content-card {
+    display: flex;
+    flex-direction: column; /* 上から縦に積む */
+    align-items: center; /* 中央寄せ */
+    text-align: center; /* テキスト中央揃え */
+    width: min(max(45%, 100px), 90%); /* 最大200px, 画面幅が狭いときは縮む */
+    margin: 0.5rem 0.5rem;
+    box-sizing: border-box;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    transition: transform 0.2s ease;
+  }
+  .content-card:hover {
+    transform: rotate(0.3deg) scale(1.01);
+    /* 背景を強調色で縁取り */
+    border: 3px solid var(--orange);
+  }
+  .content-image {
+    width: 100%;
+    overflow: hidden;
+    margin-bottom: 0rem;
+    padding: 0 0;
+  }
+  .content-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    margin-bottom: 0rem;
+    padding: 0 0;
+  }
+  .content-name,
+  .content-subtitle,
+  .content-description {
+    margin: 0 0;
+  }
+  .content-name {
+    font-size: clamp(0.9rem, 1.9vw, 2.5rem);
+    width: 100%; /* 親の幅いっぱい使う */
+  }
+  .content-subtitle {
+    position: relative;
+    font-size: clamp(0.5rem, 1.5vw, 1rem);
+    padding-bottom: 4px; /* 下に少し余白 */
+    width: 100%; /* 親の幅いっぱい使う */
+  }
+  .content-subtitle::after {
+    content: "";
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    bottom: 0;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--text);
+  }
+  .content-description {
+    position: relative;
+    font-size: clamp(0.4rem, 0.9vw, 1.3rem);
+    padding: 1rem 0.5rem; /* 下に少し余白 */
+    width: 100%; /* 親の幅いっぱい使う */
+  }
+</style>

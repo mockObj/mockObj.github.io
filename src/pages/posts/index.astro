@@ -1,0 +1,42 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import BlogPost from "../../components/BlogPost.astro";
+import ContentCard from "../../components/ContentCard.astro";
+
+const allPosts = await Astro.glob("./*.md");
+const pageTitle = "Contents";
+---
+
+<BaseLayout pageTitle={pageTitle}>
+  <div class="contents-main">
+    <div class="contents-container">
+      {
+        allPosts.map((post) => (
+          <ContentCard
+            title={post.frontmatter.title}
+            image={post.frontmatter.image}
+            subtitle={post.frontmatter.subtitle}
+            description={post.frontmatter.description}
+            eventTag={post.frontmatter.eventTag}
+            date={post.frontmatter.date}
+            pageUrl={post.url}
+          />
+        ))
+      }
+    </div>
+  </div>
+</BaseLayout>
+<style>
+  .contents-main {
+    display: flex;
+    justify-content: center; /* 全体を中央寄せ */
+  }
+
+.contents-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center; /* ここを flex-start から center に変更 */
+  max-width: 800px;
+  margin: 1rem 1rem;
+}
+</style>

@@ -1,0 +1,88 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SiteInfo from '../components/SiteInfo.astro';
+import CreatorInfo from '../components/CreatorInfo.astro';
+import ContentHeader from '../components/ContentHeader.astro';
+const { frontmatter } = Astro.props;
+import '../styles/contentHeader.css';
+---
+
+<head>
+  <meta charset="utf-8" />
+  <title>{frontmatter.title+" "+frontmatter.subtitle}</title>
+</head>
+<BaseLayout pageTitle={""}>
+<div class="content-detail">
+  <img src={frontmatter.vImage} alt={frontmatter.title} />
+  <div class="content-info">
+    <ContentHeader date={frontmatter.date} eventTag={frontmatter.eventTag} />
+    <h2 class="content-name">{frontmatter.title}</h2>
+    <h3 class="content-subtitle">{frontmatter.subtitle}</h3>
+    <h4 class="content-abstract-title">▶概要</h4>
+    <p class="content-detail" set:html={frontmatter.moreDetail} />
+    <SiteInfo siteUrl={frontmatter.siteUrl} hashtag={frontmatter.hashtag} />
+    <h4 class="content-abstract-title">▶制作に携わったクリエイター</h4>
+    <CreatorInfo creators={frontmatter.creators} />
+  </div>
+</div>
+  <slot />
+</BaseLayout>
+<style>
+  img {
+    width: 40%;
+    height: auto;
+    border-radius: 6px;
+    margin: 1rem;
+    display: block;
+  }
+  .content-detail {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin: 1rem;
+  }
+  .content-info {
+    flex: 1;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+  }
+  h2 {
+    text-align: center;
+    padding: 0rem 0;
+    margin: 0;
+    font-size: 1.3rem;
+  }
+  h3 {
+    text-align: center;
+    padding: 0rem 0;
+    margin: 0;
+    font-size: 0.8rem;
+  }
+  h3::after {
+    content: "";
+    display: block;
+    margin: 0 auto;
+    width: 80%;
+    height: 2px;
+    background: var(--text);
+    border-radius: 999px;
+  }
+  h4 {
+    margin-top: 0.5rem;
+    margin-bottom: 0rem;
+    padding: 0 0;
+    font-size: 1rem;
+    color: var(--text);
+  }
+  .content-detail {
+    margin: 0.5rem;
+    padding: 0 0;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  :global(.content-info .content-header) {
+  font-size: 12px;
+}
+</style>

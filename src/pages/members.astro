@@ -1,0 +1,35 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import MemberCard from "../components/MemberCard.astro";
+import {members} from "../scripts/members.js";
+---
+
+<BaseLayout pageTitle="Creator">
+  <div class="members-main">
+    <div class="members-container">
+      {
+        Object.entries(members).map(([name, m]) => (
+          <MemberCard
+            memberName={name}
+            memberUrl={m.url}
+            memberImage={m.image}
+          />
+        ))
+      }
+    </div>
+  </div>
+</BaseLayout>
+<style>
+  .members-main {
+    display: flex;
+    justify-content: center; /* 全体を中央寄せ */
+  }
+
+.members-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center; /* ここを flex-start から center に変更 */
+  max-width: 800px;
+  margin: 1rem auto;
+}
+</style>

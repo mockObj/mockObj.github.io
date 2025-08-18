@@ -1,0 +1,39 @@
+---
+const { siteUrl, hashtag } = Astro.props;
+---
+<div class="site-info">
+  <button class="site-info-button" onClick={() => window.open(siteUrl, '_blank')}>
+    公式サイト
+  </button>
+  <button class="hashtag-button" onClick={() => window.open(`https://twitter.com/hashtag/${hashtag}`, '_blank')}>
+    感想を見る
+  </button>
+</div>
+
+<style>
+  .site-info-button,
+  .hashtag-button {
+    background-color: var(--orange);
+    color: var(--text);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    margin: 0 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    overflow: hidden;
+    /* // 右下にドロップシャドウ */
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 1);
+  }
+
+  .site-info-button:hover,
+  .hashtag-button:hover {
+    transform: translateY(-2px);
+  }
+  .site-info {
+    /*中央揃え*/
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between
+    margin: 1rem auto;
+  }
+</style>

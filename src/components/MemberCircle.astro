@@ -1,0 +1,54 @@
+---
+const { memberName, memberUrl, memberImage, memberRole } = Astro.props;
+---
+
+<div class="member-card">
+  <div class="member-circle">
+    <a href={memberUrl} target="_blank" rel="noopener noreferrer">
+      <img src={memberImage} alt={memberName} width="200" height="200" />
+    </a>
+  </div>
+  <h3 class="member-name">{memberName}</h3>
+  <p class="member-role">{memberRole.join('・')}</p>
+</div>
+<style>
+  .member-card {
+    display: flex;
+    flex-direction: column; /* 上から縦に積む */
+    align-items: center; /* 中央寄せ */
+    text-align: center; /* テキスト中央揃え */
+    width: min(200px, 30%);
+    margin: 4px;
+    padding: 0.1rem;
+    box-sizing: border-box;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    position: relative;
+    overflow: hidden;
+  }
+
+.member-name {
+  margin-top: 3px;
+  margin-bottom: 0px;
+  font-size: 12px;
+}
+.member-role {
+  font-size: 10px;
+  margin: 0.5rem;
+  color: #666;
+}
+.member-circle {
+  width: 90%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #333; /* 幅の5% */
+  margin: 0 auto;
+}
+
+.member-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+</style>

@@ -1,0 +1,38 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+const pageTitle = "Home";
+---
+
+<BaseLayout pageTitle={pageTitle}>
+	<div class="content-pad">
+		<img src="/icons/Hello.png" alt="Hello" class="description" />
+		<a href="/about">
+			<button class="inDetail">団体についてもっと見る▶</button>
+		</a>
+	</div>
+</BaseLayout>
+<style>
+	.description {
+		width: 100%;
+		margin: auto auto;
+		padding: 1rem;
+		display: block;
+		border-radius: 6px;
+		text-align: center;
+		object-fit: cover;
+	}
+	.inDetail {
+		display: block;
+		margin: 0.2rem auto;
+		padding: 0.5rem 3rem;
+		border: none;
+		border-radius: 999px;
+		background-color: var(--text);
+		color: var(--white);
+		font-size: 1rem;
+		cursor: pointer;
+	}
+	.content-pad {
+		padding: 1rem;
+	}
+</style>

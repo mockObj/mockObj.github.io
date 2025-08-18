@@ -1,0 +1,27 @@
+---
+const links = [
+  { href: "/", label: "Home" },
+  { href: "/about", label: "About" },
+  { href: "/posts", label: "Contents" },
+  { href: "/members", label: "Creator" },
+  { href: "/contact", label: "Contact" }
+];
+
+const path = Astro.url.pathname;
+const isActive = (href) =>
+  href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
+---
+
+<div class="nav-links" role="navigation">
+  {
+    links.map((l) => (
+      <a
+        href={l.href}
+        class={`nav-item${isActive(l.href) ? " is-active" : ""}`}
+        aria-current={isActive(l.href) ? "page" : undefined}
+      >
+        {l.label}
+      </a>
+    ))
+  }
+</div>

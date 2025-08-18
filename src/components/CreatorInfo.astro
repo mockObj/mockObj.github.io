@@ -1,0 +1,36 @@
+---
+const {creators} = Astro.props;
+import MemberCircle from './MemberCircle.astro';
+import {members} from '../scripts/members.js';
+---
+<div class="members-main">
+  <div class="members-container">
+    {
+      creators.map((m) => (
+        <MemberCircle
+          memberName={m.name}
+          memberUrl={members[m.name].url}
+          memberImage={members[m.name].image}
+          memberRole={m.role}
+        />
+      ))
+    }
+  </div>
+</div>
+<style>
+  .members-main {
+    display: flex;
+    justify-content: center; /* 全体を中央寄せ */
+    margin: 0;
+    padding: 0;
+  }
+
+.members-container {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row; /* 横並び */
+  justify-content: center; /* ここを flex-start から center に変更 */
+  max-width: 800px;
+  margin: 1rem auto;
+}
+</style>

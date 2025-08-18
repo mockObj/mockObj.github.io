@@ -1,0 +1,294 @@
+/* =========================
+   Variables
+========================= */
+:root {
+  --bg: #72bff8;
+  /* 背景 */
+  --accent: #004b74;
+  /* 差し色（紺） */
+  --text: #0b2230;
+  /* 本文色 */
+  --shadow-dark: rgba(0, 0, 0, 0.18);
+  --shadow-light: rgba(255, 255, 255, 0.70);
+  --radius: 10px;
+  /* 小さめ角丸 */
+  --radius-pill: 999px;
+  /* ピル型 */
+  --underline-thick: 6px;
+  --orange: #ffc44a;
+  --white: #e5f3ff;
+}
+
+html {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+:lang(ja) {
+  font-family: "Lato", "M PLUS 1p", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-weight: 900;
+}
+
+body {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 160ch;
+  padding: 1rem;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1 {
+  margin: 1rem 0;
+  margin-bottom: 0;
+  font-size: 4rem;
+  color: var(--white);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+h1::after {
+  content: "";
+  display: block;
+  width: 70%;
+  /* 親要素幅いっぱい */
+  height: 4px;
+  background: var(--white);
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+  /* 中央揃え */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.mv {
+  width: 100%;
+  margin: 1rem 0;
+  display: block;
+  border-radius: 6px;
+}
+
+/* メインコンテンツのスタイル */
+.content {
+  background-color: var(--white);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+}
+
+/* ナビゲーションのスタイル */
+.hamburger {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  padding: 10px;
+  cursor: pointer;
+  aspect-ratio: 1;
+  opacity: .4;
+  border-radius: 2px;
+}
+
+.hamburger .line {
+  display: block;
+  width: 40px;
+  height: 5px;
+  margin-bottom: 10px;
+  background-color: var(--text);
+  border-radius: 2px;
+}
+
+.nav-links {
+  width: 100%;
+  top: 0px;
+  left: 48px;
+  display: none;
+  margin: 0;
+  padding-top: 4rem;
+}
+
+.nav-links a {
+  display: block;
+  text-align: center;
+  padding: 0 0;
+  margin-bottom: 1rem;
+  text-decoration: none;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* ベース */
+.nav-links .nav-item {
+  display: block;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  color: var(--white);
+  position: relative;
+  /* ホバー用の背景アニメ（左→右に塗る） */
+  background-image: linear-gradient(90deg, var(--white), var(--white));
+  background-repeat: no-repeat;
+  background-size: 0% 100%;
+  transition: background-size .25s ease, color .25s ease;
+}
+
+/* 現在地（その配下含む）= 常時白背景＋青文字＋ピル */
+.nav-links .nav-item.is-active {
+  background-size: 100% 100%;
+  color: var(--bg);
+}
+
+/* PCホバー時だけ白背景へスムーズに塗り、文字色を青に */
+@media (hover: hover) {
+  .nav-links .nav-item:hover {
+    background-size: 100% 100%;
+    color: var(--bg);
+  }
+}
+
+.expanded {
+  display: unset;
+}
+
+.navigation {
+  display: none;
+}
+
+body.nav-open {
+  overflow: hidden;
+}
+
+/* 半透明グレーの全面オーバーレイ */
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  z-index: 9999;
+  display: block;
+  /* 常在させて制御はクラスで */
+}
+
+.nav-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* オーバーレイが開いたらリンク群を表示 */
+.nav-overlay .nav-links {
+  display: block;
+  margin: 0;
+}
+
+.nav-overlay .nav-links a {
+  display: block;
+  padding: 12px 16px;
+}
+
+/* 右からスライドするパネル */
+.nav-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(80vw, 320px);
+  height: 100%;
+  background: #fff;
+  padding: 1rem;
+  transform: translateX(100%);
+  transition: transform .25s ease;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, .2);
+}
+
+.nav-overlay.active .nav-panel {
+  transform: translateX(0);
+}
+
+.nav-close {
+  font-size: 1.5rem;
+  line-height: 1;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* ビュー遷移アニメーション */
+::view-transition-old,
+::view-transition-new {
+  animation-duration: 6s;
+  /* アニメーションの時間を調整 */
+}
+
+/* フェードアウトアニメーション */
+::view-transition-old {
+  animation-name: fade-out;
+  /* `animation-timing-function`で速度を調整可能 */
+}
+
+/* フェードインアニメーション */
+::view-transition-new {
+  animation-name: fade-in;
+  /* `animation-timing-function`で速度を調整可能 */
+}
+
+/* アニメーションの定義 */
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media screen and (min-width: 636px) {
+  .nav-links {
+    margin-left: 1em;
+    display: block;
+    position: static;
+    width: auto;
+    background: none;
+  }
+
+  .nav-links a {
+    display: inline-block;
+    padding: 15px 20px;
+  }
+
+  .hamburger {
+    display: none;
+  }
+
+  .main {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .main-content {
+    flex: 1;
+    padding: 1rem;
+  }
+
+  .navigation {
+    display: block;
+    width: max(150px, 15%);
+  }
+
+  .nav-overlay {
+    display: none !important;
+  }
+}

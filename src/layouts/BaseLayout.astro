@@ -1,0 +1,55 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import "../styles/global.css";
+import Navigation from "../components/Navigation.astro";
+import GoToTop from "../components/GoToTop.astro";
+const { pageTitle } = Astro.props;
+import { ViewTransitions } from "astro:transitions";
+---
+
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{pageTitle}</title>
+    <!-- <head> 内に追加 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=M+PLUS+1p:wght@400;500;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <ViewTransitions />
+  </head>
+  <body>
+    <Header />
+    <div class="main">
+      <main class="main-content">
+        {(pageTitle==="Home" ? <img src="/icons/mv.png" alt="MV" class="mv"/> : pageTitle!=="" ? <h1>{pageTitle}</h1> : null)}
+        <div class="content">
+        <slot />
+        </div>
+      </main>
+      <aside class="navigation">
+        <Navigation />
+      </aside>
+    </div>
+
+    <!-- モバイル用オーバーレイ -->
+    <div id="nav-overlay" class="nav-overlay" aria-hidden="true">
+      <div class="nav-panel" role="dialog" aria-modal="true">
+        <button class="nav-close" aria-label="閉じる">×</button>
+        <Navigation />
+      </div>
+    </div>
+    <Footer/>
+    <GoToTop />
+
+    <script>
+      import "../scripts/menu.js";
+    </script>
+  </body>
+</html>

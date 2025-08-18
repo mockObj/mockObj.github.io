@@ -1,0 +1,69 @@
+---
+const size = 96; // ピクセル
+---
+
+<button id="goTop" class="go-top" aria-label="ページの先頭へ" hidden>
+  <img src="/icons/GoToTop300x300.png" alt="ページの先頭へ" width={size - 16} height={size - 16} />
+</button>
+
+<script>
+  const btn = document.getElementById("goTop");
+  const THRESHOLD = 300;
+
+  const onScroll = () => {
+    if (btn) {
+      btn.hidden = window.scrollY < THRESHOLD;
+    }
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  if (btn) {
+    btn.addEventListener("click", () => {
+      const reduce = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    });
+  }
+</script>
+
+<style>
+  .go-top {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    width: size;
+    height: size;
+    border: 0;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    z-index: 9998; /* オーバーレイ(9999)の下に置く */
+    background-color: transparent;
+  }
+  .go-top:hover {
+    opacity: 0.9;
+  }
+  /* .go-top:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  } */
+  .go-top[hidden] {
+    display: none;
+
+  }
+  img {
+    pointer-events: none;
+    background-color: transparent;
+  }
+  .go-top img {
+  background: transparent;
+  background-color: transparent;
+  border-radius: 50%; /* 必要なら */
+  image-rendering: crisp-edges; /* or pixelated */
+}
+
+</style>
