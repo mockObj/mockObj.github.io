@@ -8,5 +8,5 @@ import preact from '@astrojs/preact';
 export default defineConfig({
   integrations: [preact()],
     site: 'https://mockObj.github.io',
-  base: 'sample',
+  base: '/sample/',
 });
