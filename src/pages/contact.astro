@@ -1,51 +1,92 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import BaseLayout from "../layouts/BaseLayout.astro";
 ---
-<BaseLayout pageTitle="contact">
-<form class="form" id="form" action="https://ssgform.com/s/Qm12VHOkWAd6" method="post" novalidate>
-  <div class="form__cont">
-    <label class="form__label" for="name">お名前 <span class="form__required">必須</span></label>
-    <div class="form__contInner">
-      <input class="form__text" type="text" id="name" name="name" placeholder="山田 太郎" aria-required="true" required>
+
+<BaseLayout pageTitle="Contact">
+  <form
+    class="form"
+    id="form"
+    action="https://ssgform.com/s/Qm12VHOkWAd6"
+    method="post"
+    novalidate
+  >
+    <div class="form__cont">
+      <label class="form__label" for="name"
+        >お名前 <span class="form__required">必須</span></label
+      >
+      <div class="form__contInner">
+        <input
+          class="form__text"
+          type="text"
+          id="name"
+          name="name"
+          placeholder="山田 太郎"
+          aria-required="true"
+          required
+        />
+      </div>
     </div>
-  </div>
 
-  <div class="form__cont">
-    <label class="form__label" for="email">メールアドレス <span class="form__required">必須</span></label>
-    <div class="form__contInner">
-      <input class="form__text" type="email" autocomplete="email" id="email" name="email" placeholder="taro@example.com" aria-required="true" required>
-      <span class="form__errorMessage text-red-500 text-xs"></span>
+    <div class="form__cont">
+      <label class="form__label" for="email"
+        >メールアドレス <span class="form__required">必須</span></label
+      >
+      <div class="form__contInner">
+        <input
+          class="form__text"
+          type="email"
+          autocomplete="email"
+          id="email"
+          name="email"
+          placeholder="taro@example.com"
+          aria-required="true"
+          required
+        />
+        <span class="form__errorMessage text-red-500 text-xs"></span>
+      </div>
     </div>
-  </div>
 
-  <div class="form__cont">
-    <label class="form__label" for="message">お問い合わせ内容 <span class="form__required">必須</span></label>
-    <div class="form__contInner">
-      <textarea class="form__textarea" id="message" name="message" cols="30" rows="10" placeholder="お問い合わせ内容をご記入ください" aria-required="true" required></textarea>
+    <div class="form__cont">
+      <label class="form__label" for="message"
+        >お問い合わせ内容 <span class="form__required">必須</span></label
+      >
+      <div class="form__contInner">
+        <textarea
+          class="form__textarea"
+          id="message"
+          name="message"
+          cols="30"
+          rows="10"
+          placeholder="お問い合わせ内容をご記入ください"
+          aria-required="true"
+          required></textarea>
+      </div>
     </div>
-  </div>
 
-  <!-- 外部スクリプトはそのまま読み込む（is:inlineを付けない） -->
-  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <!-- 外部スクリプトはそのまま読み込む（is:inlineを付けない） -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
-  <!-- v2 Checkbox。コールバックでボタン有効化を更新 -->
-   <!-- https://www.suzunatsu.com/post/astro-ssgform-recaptcha/   参考 -->
-  <div
-    class="g-recaptcha mt-4 flex justify-center"
-    data-sitekey="6LeFsakrAAAAACpGBmzZBagYuJn9EmtMepLH0vQW"
-    data-callback="onRecaptcha"
-    data-expired-callback="onRecaptchaExpired">
-  </div>
+    <!-- v2 Checkbox。コールバックでボタン有効化を更新 -->
+    <!-- https://www.suzunatsu.com/post/astro-ssgform-recaptcha/   参考 -->
+    <div
+      class="g-recaptcha mt-4 flex justify-center"
+      data-sitekey="6LeFsakrAAAAACpGBmzZBagYuJn9EmtMepLH0vQW"
+      data-callback="onRecaptcha"
+      data-expired-callback="onRecaptchaExpired"
+    >
+    </div>
 
-  <button type="submit" class="form__btn is-disabled" disabled>送信する</button>
-</form>
+    <button type="submit" class="form__btn is-disabled" disabled
+      >送信する</button
+    >
+  </form>
 </BaseLayout>
 
 <script is:inline>
   document.addEventListener("DOMContentLoaded", () => {
     const formBtn = document.querySelector(".form__btn");
-    const person  = document.querySelector("#name");
-    const email   = document.querySelector("#email");
+    const person = document.querySelector("#name");
+    const email = document.querySelector("#email");
     const message = document.querySelector("#message");
     const errorMessage = document.querySelector(".form__errorMessage");
 
@@ -72,7 +113,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const validateForm = () => {
       const isFilled =
         person.value.trim() !== "" &&
-        email.value.trim()  !== "" &&
+        email.value.trim() !== "" &&
         message.value.trim() !== "";
 
       const emailOK = validateEmail();
@@ -87,11 +128,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     message.addEventListener("input", validateForm);
 
     // reCAPTCHAコールバック（グローバルに公開）
-    window.onRecaptcha = function() {
+    window.onRecaptcha = function () {
       recaptchaOK = true;
       validateForm();
     };
-    window.onRecaptchaExpired = function() {
+    window.onRecaptchaExpired = function () {
       recaptchaOK = false;
       validateForm();
     };
@@ -109,43 +150,51 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     margin-bottom: 1rem;
   } */
 
-    /* コンテナを中央に配置し、内部は左揃え */
-  .contact{
-    width:min(720px,92vw);
-    margin:4rem auto;           /* 上下の余白 ＋ 中央揃え */
+  /* コンテナを中央に配置し、内部は左揃え */
+  .contact {
+    width: min(720px, 92vw);
+    margin: 4rem auto; /* 上下の余白 ＋ 中央揃え */
   }
-  .contact__title{
-    margin:0 0 1rem;
-    font-size:1.5rem;
-    text-align:left;            /* タイトル左揃え */
+  .contact__title {
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+    text-align: left; /* タイトル左揃え */
   }
 
   /* フォームカード */
-  .form{
-    display:grid;
-    gap:1rem;                   /* 各要素の間隔 */
-    padding:1.5rem;
-    text-align:left;            /* 内部左揃え */
+  .form {
+    display: grid;
+    gap: 1rem; /* 各要素の間隔 */
+    padding: 1.5rem;
+    text-align: left; /* 内部左揃え */
   }
 
-  .form__cont{ display:grid; gap:.5rem; }
+  .form__cont {
+    display: grid;
+    gap: 0.5rem;
+  }
   .form__text,
-  .form__textarea{ width:100%; }
-
-  .g-recaptcha{ margin-top:.5rem; }  /* 左揃えのまま */
-
-  .form__btn{
-    margin-top:.5rem;
-    padding:.8rem 1.2rem;
-    border-radius:999px;        /* ピル形 */
+  .form__textarea {
+    width: 100%;
   }
 
-  .form__required{
-    font-size: .875rem;
+  .g-recaptcha {
+    margin-top: 0.5rem;
+  } /* 左揃えのまま */
+
+  .form__btn {
+    margin-top: 0.5rem;
+    padding: 0.8rem 1.2rem;
+    border-radius: 999px; /* ピル形 */
+  }
+
+  .form__required {
+    font-size: 0.875rem;
     color: red;
   }
 
   /* お好みでエラー表示の見た目を簡単に */
-  .is-invalid{ outline:2px solid #f87171; }
-
+  .is-invalid {
+    outline: 2px solid #f87171;
+  }
 </style>

@@ -24,17 +24,36 @@ html {
   color: var(--text);
 }
 
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+.wrapper {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.background {
+  flex: 1;
+}
+
 :lang(ja) {
   font-family: "Lato", "M PLUS 1p", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 body {
   margin: 0 auto;
   width: 100%;
   max-width: 160ch;
-  padding: 1rem;
   line-height: 1.5;
+}
+
+.background {
+  padding: 1rem;
 }
 
 * {
@@ -76,6 +95,8 @@ h1::after {
   background-color: var(--white);
   border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 /* ナビゲーションのスタイル */

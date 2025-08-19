@@ -6,11 +6,17 @@ const { memberName, memberUrl, memberImage } = Astro.props;
   <div class="member-circle">
     <a href={memberUrl} target="_blank" rel="noopener noreferrer">
       <img src={memberImage} alt={memberName} width="200" height="200" />
-  </a>
+    </a>
   </div>
   <h3 class="member-name">{memberName}</h3>
   <a href={memberUrl} target="_blank" rel="noopener noreferrer">
-    <img src="/icons/twitter.png" class="twitter-icon" alt="Twitter Icon" width="200" height="200" />
+    <img
+      src="/icons/twitter.png"
+      class="twitter-icon"
+      alt="Twitter Icon"
+      width="200"
+      height="200"
+    />
   </a>
 </div>
 <style>
@@ -19,11 +25,9 @@ const { memberName, memberUrl, memberImage } = Astro.props;
     flex-direction: column; /* 上から縦に積む */
     align-items: center; /* 中央寄せ */
     text-align: center; /* テキスト中央揃え */
-    width: min(max(26%, 140px), 90%); /* 最大200px, 画面幅が狭いときは縮む */
-    margin: 20px;
     padding: 1rem;
     box-sizing: border-box;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     transition: transform 0.2s ease;
     position: relative;
     overflow: hidden;
@@ -32,40 +36,40 @@ const { memberName, memberUrl, memberImage } = Astro.props;
     transform: rotate(0.3deg) scale(1.01);
   }
 
-
-/* 枠線エフェクト */
-.member-card::after {
-  content: "";
-  position: absolute;
-  inset: 0; /* 上下左右0 */
-  border: 2px solid transparent; /* 初期は透明 */
-  border-image: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255,255,255,0.8),
-    transparent
-  ) 1;
-  transform: translateX(-100%);
-}
-
-.member-card:hover::after {
-  animation: border-shine 1s linear forwards;
-}
-
-@keyframes border-shine {
-  from {
+  /* 枠線エフェクト */
+  .member-card::after {
+    content: "";
+    position: absolute;
+    inset: 0; /* 上下左右0 */
+    border: 2px solid transparent; /* 初期は透明 */
+    border-image: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.8),
+        transparent
+      )
+      1;
     transform: translateX(-100%);
   }
-  to {
-    transform: translateX(100%);
-  }
-}
 
-.member-name {
-  margin-top: 10px;
-  margin-bottom: 0px;
-  font-size: 18px;
-}
+  .member-card:hover::after {
+    animation: border-shine 1s linear forwards;
+  }
+
+  @keyframes border-shine {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  .member-name {
+    margin-top: 10px;
+    margin-bottom: 0px;
+    font-size: 18px;
+  }
   .member-circle {
     width: 90%;
     aspect-ratio: 1 / 1;

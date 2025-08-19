@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import MemberCard from "../components/MemberCard.astro";
-import {members} from "../scripts/members.js";
+const { members } = await import("../scripts/members.js");
 ---
 
 <BaseLayout pageTitle="Creator">
@@ -20,16 +20,28 @@ import {members} from "../scripts/members.js";
   </div>
 </BaseLayout>
 <style>
-  .members-main {
-    display: flex;
-    justify-content: center; /* 全体を中央寄せ */
+  .members-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 基本は3列 */
+    gap: 2rem;
+    max-width: 800px;
+    padding: 2rem; /* 画面幅が狭い時に左右の余白を確保 */
+    box-sizing: border-box;
   }
 
-.members-container {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center; /* ここを flex-start から center に変更 */
-  max-width: 800px;
-  margin: 1rem auto;
-}
+  /* --- メディアクエリの追記 --- */
+
+  /* タブレットサイズなど */
+  @media (max-width: 768px) {
+    .members-container {
+      grid-template-columns: repeat(2, 1fr); /* 2列に変更 */
+    }
+  }
+
+  /* スマートフォンサイズなど */
+  @media (max-width: 480px) {
+    .members-container {
+      grid-template-columns: 1fr; /* 1列に変更 */
+    }
+  }
 </style>

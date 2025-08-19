@@ -1,9 +1,9 @@
 ---
 layout: ../../layouts/MarkdownPostLayout.astro
 title: 'ルールオブルール2'
-subtitle: '持ち帰り謎'
-image: '/mv/800x450.png'
-vImage: '/mv/450x800.png'
+subtitle: ''
+image: '/mv/kv_ルールオブルール2.JPEG'
+
 pubDate: 2025-08-17
 date: "2025.05-"
 description: 'タンブルウィードさまと共に制作した <br> タンブルウィード スイッチ下北沢で開催された<br>ホール型の謎解きイベントです。'

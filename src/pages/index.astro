@@ -6,9 +6,9 @@ const pageTitle = "Home";
 <BaseLayout pageTitle={pageTitle}>
 	<div class="content-pad">
 		<img src="/icons/Hello.png" alt="Hello" class="description" />
-		<a href="/about">
-			<button class="inDetail">団体についてもっと見る▶</button>
-		</a>
+		<button class="inDetail" onclick="location.href='/about'">
+			団体についてもっと見る▶
+		</button>
 	</div>
 </BaseLayout>
 <style>
@@ -31,6 +31,7 @@ const pageTitle = "Home";
 		color: var(--white);
 		font-size: 1rem;
 		cursor: pointer;
+		font-weight: 700;
 	}
 	.content-pad {
 		padding: 1rem;

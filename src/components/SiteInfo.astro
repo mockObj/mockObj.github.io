@@ -1,11 +1,19 @@
 ---
 const { siteUrl, hashtag } = Astro.props;
 ---
+
 <div class="site-info">
-  <button class="site-info-button" onClick={() => window.open(siteUrl, '_blank')}>
+  <button
+    class="site-info-button"
+    onClick={() => window.open(siteUrl, "_blank")}
+  >
     公式サイト
   </button>
-  <button class="hashtag-button" onClick={() => window.open(`https://twitter.com/hashtag/${hashtag}`, '_blank')}>
+  <button
+    class="hashtag-button"
+    onClick={() =>
+      window.open(`https://twitter.com/hashtag/${hashtag}`, "_blank")}
+  >
     感想を見る
   </button>
 </div>
@@ -33,7 +41,8 @@ const { siteUrl, hashtag } = Astro.props;
     /*中央揃え*/
     display: flex;
     flex-direction: row;
-    justify-content: space-between
+    justify-content: center;
     margin: 1rem auto;
+    width: 100%;
   }
 </style>
