@@ -68,7 +68,7 @@ const { memberName, memberUrl, memberImage } = Astro.props;
   .member-name {
     margin-top: 10px;
     margin-bottom: 0px;
-    font-size: 18px;
+    font-size: 18.5px;
   }
   .member-circle {
     width: 90%;
@@ -92,5 +92,13 @@ const { memberName, memberUrl, memberImage } = Astro.props;
     display: block;
     object-fit: contain;
     margin: 0 auto;
+  }
+
+  @media (max-width: 635px) {
+    .member-name {
+      margin-top: 10px;
+      margin-bottom: 0px;
+      font-size: 16px;
+    }
   }
 </style>

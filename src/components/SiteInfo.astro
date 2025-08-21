@@ -26,8 +26,8 @@ const { siteUrl, hashtag } = Astro.props;
     cursor: pointer;
     transition: transform 0.2s ease;
     margin: 0 0.5rem;
-    font-size: 0.8rem;
-    border-radius: 4px;
+    font-size: 1.5rem;
+    border-radius: 6px;
     overflow: hidden;
     /* // 右下にドロップシャドウ */
     box-shadow: 1px 1px 1px rgba(0, 0, 0, 1);
@@ -44,5 +44,12 @@ const { siteUrl, hashtag } = Astro.props;
     justify-content: center;
     margin: 1rem auto;
     width: 100%;
+  }
+
+  @media (max-width: 635px) {
+    .site-info-button,
+    .hashtag-button {
+      font-size: 0.9rem;
+    }
   }
 </style>

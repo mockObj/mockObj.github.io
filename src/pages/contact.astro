@@ -71,6 +71,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <div
       class="g-recaptcha mt-4 flex justify-center"
       data-sitekey="6LeFsakrAAAAACpGBmzZBagYuJn9EmtMepLH0vQW"
+      data-size="compact"
       data-callback="onRecaptcha"
       data-expired-callback="onRecaptchaExpired"
     >
@@ -152,7 +153,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
   /* コンテナを中央に配置し、内部は左揃え */
   .contact {
-    width: min(720px, 92vw);
     margin: 4rem auto; /* 上下の余白 ＋ 中央揃え */
   }
   .contact__title {
@@ -196,5 +196,31 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   /* お好みでエラー表示の見た目を簡単に */
   .is-invalid {
     outline: 2px solid #f87171;
+  }
+  /* フォームは画面幅内に収める */
+  .form {
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  /* グリッド子を縮め可にして横はみ出し防止 */
+  .form__contInner {
+    min-width: 0;
+  }
+
+  /* 入力要素は親幅を超えない */
+  .form__text,
+  .form__textarea {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 極小幅でのパディング圧縮（必要最小） */
+  @media (max-width: 360px) {
+    .form {
+      padding-inline: 0.75rem;
+    }
   }
 </style>

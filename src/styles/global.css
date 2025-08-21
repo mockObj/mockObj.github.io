@@ -313,3 +313,21 @@ body.nav-open {
     display: none !important;
   }
 }
+
+/* 右パネル内の文字色を青に */
+.nav-overlay .nav-panel .nav-item,
+.nav-overlay .nav-panel a {
+  color: var(--bg);
+  /* 濃い青。薄い青にしたいなら var(--bg) */
+}
+
+/* パネル内でホバーやis-activeでも青を維持 */
+@media (hover: hover) {
+  .nav-overlay .nav-panel .nav-item:hover {
+    color: var(--bg);
+  }
+}
+
+.nav-overlay .nav-panel .nav-item.is-active {
+  color: var(--bg);
+}

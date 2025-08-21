@@ -32,11 +32,28 @@ const pageTitle = "Contents";
     justify-content: center; /* 全体を中央寄せ */
   }
 
-.contents-container {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center; /* ここを flex-start から center に変更 */
-  max-width: 800px;
-  margin: 1rem 1rem;
-}
+  /* ページ側: コンテナを中央に固定しグリッド化 */
+  .contents-container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    gap: 1rem;
+    max-width: 800px;
+    width: 100%;
+    padding-inline: 1rem;
+    margin: 1rem auto;
+    box-sizing: border-box;
+    justify-content: center; /* 余白を左右均等 */
+    justify-items: stretch; /* アイテムは列幅いっぱい */
+  }
+  @media (max-width: 635px) {
+    .contents-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* カード幅を明示 */
+  .content-card {
+    width: 100%;
+    margin: 0;
+  }
 </style>
