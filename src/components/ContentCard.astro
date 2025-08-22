@@ -19,9 +19,11 @@ import ContentHeader from "../components/ContentHeader.astro";
   .content-card {
     display: flex;
     flex-direction: column; /* 上から縦に積む */
+    justify-content: flex-start; /* 上詰め */
     align-items: center; /* 中央寄せ */
     text-align: center; /* テキスト中央揃え */
     width: 100%;
+    height: 100%;
     box-sizing: border-box;
     border-radius: 6px;
     overflow: hidden;
@@ -77,6 +79,7 @@ import ContentHeader from "../components/ContentHeader.astro";
     font-size: clamp(0.75rem, 0.9vw, 0.75rem);
     padding: 1rem 0.5rem; /* 下に少し余白 */
     width: 100%; /* 親の幅いっぱい使う */
+    flex: 1;
   }
   /* 追加：スマホ幅 */
   @media (max-width: 635px) {

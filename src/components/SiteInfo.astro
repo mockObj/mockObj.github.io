@@ -3,16 +3,24 @@ const { siteUrl, hashtag } = Astro.props;
 ---
 
 <div class="site-info">
+  {
+    siteUrl !== "" && (
+      <button
+        class="site-info-button"
+        type="button"
+        onclick={`window.open('${siteUrl}', '_blank')`}
+      >
+        公式サイト
+      </button>
+    )
+  }
+
   <button
-    class="site-info-button"
-    onClick={() => window.open(siteUrl, "_blank")}
-  >
-    公式サイト
-  </button>
-  <button
+    type="button"
     class="hashtag-button"
-    onClick={() =>
-      window.open(`https://twitter.com/hashtag/${hashtag}`, "_blank")}
+    onclick={`window.open('https://twitter.com/hashtag/${encodeURIComponent(
+      String(hashtag).replace(/^#/, ""),
+    )}', '_blank')`}
   >
     感想を見る
   </button>

@@ -17,6 +17,11 @@
   --underline-thick: 6px;
   --orange: #ffc44a;
   --white: #e5f3ff;
+
+  --event-color: #005AFF;
+  --goods-color: #FF4B00;
+  --web-color: #03AF7A;
+  --others-color: #F900F9;
 }
 
 html {

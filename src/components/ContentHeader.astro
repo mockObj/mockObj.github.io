@@ -1,8 +1,29 @@
-  ---
-  const {date, eventTag} = Astro.props;
-  ---
+---
+const { date, eventTag } = Astro.props;
 
-  <div class="content-header">
-    <p class="content-date">{date}</p>
-    <p class="content-tag">{eventTag}</p>
-  </div>
+let tagClass = "";
+if (eventTag === "Event") tagClass = "event-header";
+if (eventTag === "Goods") tagClass = "goods-header";
+if (eventTag === "Others") tagClass = "others-header";
+if (eventTag === "Web") tagClass = "web-header";
+---
+
+<div class="content-header">
+  <p class="content-date">{date}</p>
+  <p class={`content-tag ${tagClass}`}>{eventTag}</p>
+</div>
+
+<style>
+  .event-header {
+    background-color: var(--event-color);
+  }
+  .goods-header {
+    background-color: var(--goods-color);
+  }
+  .others-header {
+    background-color: var(--others-color);
+  }
+  .web-header {
+    background-color: var(--web-color);
+  }
+</style>
