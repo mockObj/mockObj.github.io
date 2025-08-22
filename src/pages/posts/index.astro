@@ -96,8 +96,7 @@ const pageTitle = "Contents";
     color: var(--text);
   }
 </style>
-<script>
-  /* フィルター処理追加 */
+<script is:inline>
   document.addEventListener("DOMContentLoaded", () => {
     const buttons = document.querySelectorAll(".filter-btn");
     const cards = document.querySelectorAll(".content-card");
