@@ -7,8 +7,9 @@ import preact from '@astrojs/preact';
 // https://astro.build/config
 export default defineConfig({
   integrations: [preact()],
-  site: 'https://mockObj.github.io',
-    markdown: {
+  site: 'https://sheep-rhythm.com',
+  base: "/",
+  markdown: {
                remarkPlugins: ['remark-breaks'],
                extendDefaultPlugins: true,
          },
