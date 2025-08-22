@@ -3,7 +3,7 @@ layout: ../../layouts/MarkdownPostLayout.astro
 title: 'ルールオブルール2'
 subtitle: ' '
 image: '/mv/kv_ルールオブルール2.JPEG'
-pubDate: 2025-08-17
+pubDate: 2025-05-08
 date: "2025.05-08"
 description: 'タンブルウィードさまと共に制作した、<br>タンブルウィード スイッチ下北沢で開催されたホール型の謎解きイベントです。'
 author: 'mock'

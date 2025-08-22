@@ -3,7 +3,7 @@ layout: ../../layouts/MarkdownPostLayout.astro
 title: 'ルールオブルール2'
 subtitle: '参加者限定持ち帰りナゾ'
 image: '/mv/kv_ルールオブルール2.JPEG'
-pubDate: 2025-08-17
+pubDate: 2025-05-08
 date: "2025.05-08"
 description: 'タンブルウィード謎解き公演『ルールオブルール2』の参加者限定持ち帰りナゾです。'
 author: 'mock'

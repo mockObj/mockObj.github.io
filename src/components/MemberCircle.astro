@@ -11,38 +11,44 @@ const { memberName, memberUrl, memberImage, memberRole } = Astro.props;
   <h3 class="member-name">{memberName}</h3>
   <p class="member-role">{memberRole.join("・")}</p>
 </div>
+
 <style>
   .member-card {
     display: flex;
-    flex-direction: column; /* 上から縦に積む */
-    align-items: center; /* 中央寄せ */
-    text-align: center; /* テキスト中央揃え */
-    width: min(200px, 30%);
-    margin: 4px;
-    padding: 0.1rem;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1rem;
     box-sizing: border-box;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    position: relative;
-    overflow: hidden;
+    border-radius: 8px;
+    transition: transform 0.2s ease;
+    background: #fff;
+  }
+
+  .member-card:hover {
+    transform: scale(1.02);
   }
 
   .member-name {
-    margin-top: 3px;
-    margin-bottom: 0px;
-    font-size: 1.3rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.2rem;
+    font-size: 1.2rem;
+    font-weight: bold;
   }
+
   .member-role {
     font-size: 1rem;
-    margin: 0.5rem;
+    margin: 0.3rem 0 0;
     color: #666;
   }
+
   .member-circle {
-    width: 90%;
+    width: 100%;
     aspect-ratio: 1 / 1;
     border-radius: 50%;
     overflow: hidden;
-    border: 3px solid #333; /* 幅の5% */
-    margin: 0 auto;
+    border: 3px solid #333;
   }
 
   .member-circle img {
@@ -52,9 +58,10 @@ const { memberName, memberUrl, memberImage, memberRole } = Astro.props;
     display: block;
   }
 
+  /* スマホサイズ */
   @media (max-width: 635px) {
     .member-name {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
     }
     .member-role {
       font-size: 0.7rem;

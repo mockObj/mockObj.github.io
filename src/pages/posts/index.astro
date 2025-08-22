@@ -15,6 +15,13 @@ const pageTitle = "Contents";
 ---
 
 <BaseLayout pageTitle={pageTitle}>
+  <div slot="aboveContent" class="filter-buttons">
+    <button data-tag="all" class="filter-btn active">All</button>
+    <button data-tag="Event" class="filter-btn">Event</button>
+    <button data-tag="Goods" class="filter-btn">Goods</button>
+    <button data-tag="Web" class="filter-btn">Web</button>
+    <!-- <button data-tag="Others" class="filter-btn">Others</button> -->
+  </div>
   <div class="contents-main">
     <div class="contents-container">
       {
@@ -27,6 +34,7 @@ const pageTitle = "Contents";
             eventTag={post.frontmatter.eventTag}
             date={post.frontmatter.date}
             pageUrl={post.url}
+            data-tag={post.frontmatter.eventTag}
           />
         ))
       }
@@ -63,4 +71,49 @@ const pageTitle = "Contents";
     width: 100%;
     margin: 0;
   }
+  /* ボタンスタイル追加 */
+  .filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    justify-content: center; /* ボタンを中央寄せ */
+  }
+  .filter-btn {
+    border: 2px solid var(--white);
+    background: transparent;
+    color: var(--white);
+    border-radius: 999px;
+    padding: min(1vw, 0.3rem) min(3vw, 1rem);
+    cursor: pointer;
+    font-size: min(3vw, 1.2rem);
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+  .filter-btn.active,
+  .filter-btn:hover {
+    background: var(--white);
+    color: var(--text);
+  }
 </style>
+<script>
+  /* フィルター処理追加 */
+  document.addEventListener("DOMContentLoaded", () => {
+    const buttons = document.querySelectorAll(".filter-btn");
+    const cards = document.querySelectorAll(".content-card");
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        buttons.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        const tag = btn.getAttribute("data-tag");
+        cards.forEach((card) => {
+          const cardTag = card.getAttribute("data-tag");
+          card.style.display =
+            tag === "all" || tag === cardTag ? "block" : "none";
+        });
+      });
+    });
+  });
+</script>

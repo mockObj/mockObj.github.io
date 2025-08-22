@@ -1,8 +1,9 @@
 ---
-const {creators} = Astro.props;
-import MemberCircle from './MemberCircle.astro';
-import {members} from '../scripts/members.js';
+const { creators } = Astro.props;
+import MemberCircle from "./MemberCircle.astro";
+import { members } from "../scripts/members.js";
 ---
+
 <div class="members-main">
   <div class="members-container">
     {
@@ -20,17 +21,32 @@ import {members} from '../scripts/members.js';
 <style>
   .members-main {
     display: flex;
-    justify-content: center; /* 全体を中央寄せ */
+    justify-content: center;
     margin: 0;
     padding: 0;
   }
 
-.members-container {
-  display: flex;
-  flex-wrap: wrap;
-  flex-direction: row; /* 横並び */
-  justify-content: center; /* ここを flex-start から center に変更 */
-  max-width: 800px;
-  margin: 1rem auto;
-}
+  .members-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 基本は3列 */
+    gap: 2rem;
+    max-width: 800px;
+    margin: 1rem auto;
+    padding: 1.5rem;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 768px) {
+    .members-container {
+      grid-template-columns: repeat(2, 1fr); /* タブレットは2列 */
+      gap: 1rem;
+      padding: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .members-container {
+      grid-template-columns: 1fr; /* スマホは1列 */
+    }
+  }
 </style>
