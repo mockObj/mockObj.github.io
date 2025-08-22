@@ -1,16 +1,74 @@
 ---
-import BaseLayout from "../layouts/BaseLayout.astro";
-const pageTitle = "Home";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import "../styles/global.css";
+import Navigation from "../components/Navigation.astro";
+import GoToTop from "../components/GoToTop.astro";
+const { pageTitle } = Astro.props;
+import { ViewTransitions } from "astro:transitions";
 ---
 
-<BaseLayout pageTitle={pageTitle}>
-	<div class="content-pad">
-		<img src="/icons/Hello.png" alt="Hello" class="description" />
-		<button class="inDetail" onclick="location.href='/about'">
-			団体についてもっと見る▶
-		</button>
-	</div>
-</BaseLayout>
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href="/favicon.png" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<meta
+			name="description"
+			content="Sheep Rhythm – “自由な発想” をコンセプトに新しい謎解き体験をお届けします。"
+		/>
+		<title>Sheep Rhythm – {pageTitle}</title>
+		<!-- <head> 内に追加 -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=M+PLUS+1p:wght@400;500;700;800;900&display=swap"
+			rel="stylesheet"
+		/>
+		<ViewTransitions />
+	</head>
+	<body>
+		<div class="wrapper">
+			<div class="background">
+				<header>
+					<nav>
+						<a href="/">
+							<img src="/icons/Header700x300.png" alt="Header Image" />
+						</a>
+					</nav>
+				</header>
+
+				<div class="main">
+					<main class="main-content">
+						<p>現在工事中です。</p>
+					</main>
+				</div>
+			</div>
+			<Footer />
+		</div>
+	</body>
+</html>
+<style>
+	.mv {
+		max-width: 800px;
+		margin: 1rem auto;
+		text-align: center;
+		text-transform: uppercase;
+		color: var(--white);
+	}
+	h2.mv {
+		font-size: clamp(1rem, 6vw, 4rem);
+		font-weight: 700;
+		line-height: 1.2;
+	}
+	h3.mv {
+		font-size: clamp(0.8rem, 4vw, 2rem);
+		font-weight: 700;
+		line-height: 1.2;
+	}
+</style>
+
 <style>
 	.description {
 		width: 100%;
@@ -35,5 +93,21 @@ const pageTitle = "Home";
 	}
 	.content-pad {
 		padding: 1rem;
+	}
+</style>
+
+<style>
+	img {
+		width: 40%;
+		height: auto;
+		max-width: 700px;
+		margin: 0 auto;
+		display: block;
+		text-align: center;
+	}
+	p {
+		color: var(--white);
+		font-size: 5vw;
+		text-align: center;
 	}
 </style>
