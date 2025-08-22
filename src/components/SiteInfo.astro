@@ -1,10 +1,10 @@
 ---
-const { siteUrl, hashtag } = Astro.props;
+const { siteUrl, hashtag, webRiddleUrl } = Astro.props;
 ---
 
 <div class="site-info">
   {
-    siteUrl !== "" && (
+    siteUrl && (
       <button
         class="site-info-button"
         type="button"
@@ -15,17 +15,32 @@ const { siteUrl, hashtag } = Astro.props;
     )
   }
 
-  <button
-    type="button"
-    class="hashtag-button"
-    onclick={`window.open('https://twitter.com/hashtag/${encodeURIComponent(
-      String(hashtag).replace(/^#/, ""),
-    )}', '_blank')`}
-  >
-    感想を見る
-  </button>
-</div>
+  {
+    webRiddleUrl && (
+      <button
+        class="site-info-button"
+        type="button"
+        onclick={`window.open('${webRiddleUrl}', '_blank')`}
+      >
+        今すぐ遊ぶ
+      </button>
+    )
+  }
 
+  {
+    hashtag && (
+      <button
+        type="button"
+        class="hashtag-button"
+        onclick={`window.open('https://twitter.com/search?q=${encodeURIComponent(
+          hashtag,
+        )}', '_blank')`}
+      >
+        感想を見る
+      </button>
+    )
+  }
+</div>
 <style>
   .site-info-button,
   .hashtag-button {

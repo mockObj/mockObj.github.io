@@ -19,9 +19,19 @@ import "../styles/contentHeader.css";
     <h3 class="content-subtitle">{frontmatter.subtitle}</h3>
     <h4 class="content-abstract-title">▶概要</h4>
     <div class="content-detail"><slot /></div>
-    <SiteInfo siteUrl={frontmatter.siteUrl} hashtag={frontmatter.hashtag} />
-    <h4 class="content-abstract-title">▶制作に携わったクリエイター</h4>
-    <CreatorInfo creators={frontmatter.creators} />
+    <SiteInfo
+      siteUrl={frontmatter.siteUrl}
+      hashtag={frontmatter.hashtag}
+      webRiddleUrl={frontmatter.webRiddleUrl}
+    />
+    {
+      frontmatter.creators.length > 0 && (
+        <>
+          <h4 class="content-abstract-title">▶制作に携わったクリエイター</h4>
+          <CreatorInfo creators={frontmatter.creators} />
+        </>
+      )
+    }
   </div>
 </BaseLayout>
 <style>
@@ -31,12 +41,6 @@ import "../styles/contentHeader.css";
     display: block;
     max-width: 100%; /* 追加 */
     height: auto; /* 追加 */
-  }
-  .content-detail {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
   }
   .content-info {
     flex: 1;
@@ -74,7 +78,7 @@ import "../styles/contentHeader.css";
   }
   .content-detail {
     margin: 0.5rem;
-    padding: 0 0;
+    padding: 0;
     font-size: 1.3rem;
     color: var(--text);
   }

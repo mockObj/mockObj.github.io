@@ -3,7 +3,14 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import BlogPost from "../../components/BlogPost.astro";
 import ContentCard from "../../components/ContentCard.astro";
 
-const allPosts = await Astro.glob("./*.md");
+let allPosts = await Astro.glob("./*.md");
+
+// pubDate の降順ソート
+allPosts = allPosts.sort((a, b) => {
+  const dateA = new Date(a.frontmatter.pubDate as string).getTime();
+  const dateB = new Date(b.frontmatter.pubDate as string).getTime();
+  return dateB - dateA; // 新しい日付が先
+});
 const pageTitle = "Contents";
 ---
 
