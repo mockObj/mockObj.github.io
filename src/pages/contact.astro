@@ -63,9 +63,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>
     </div>
 
-    <!-- 外部スクリプトはそのまま読み込む（is:inlineを付けない） -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-
     <!-- v2 Checkbox。コールバックでボタン有効化を更新 -->
     <!-- https://www.suzunatsu.com/post/astro-ssgform-recaptcha/   参考 -->
     <div
@@ -83,64 +80,113 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   </form>
 </BaseLayout>
 
-<script is:inline>
-  document.addEventListener("DOMContentLoaded", () => {
-    const formBtn = document.querySelector(".form__btn");
-    const person = document.querySelector("#name");
-    const email = document.querySelector("#email");
-    const message = document.querySelector("#message");
-    const errorMessage = document.querySelector(".form__errorMessage");
+<script>
+  (() => {
+    // reCAPTCHAを必要なときだけ読み込む
+    const ensureRecaptcha = () =>
+      new Promise((resolve) => {
+        if (window.grecaptcha) return resolve();
+        const s = document.createElement("script");
+        s.src = "https://www.google.com/recaptcha/api.js?render=explicit";
+        s.async = true;
+        s.defer = true;
+        s.onload = () => resolve();
+        document.head.appendChild(s);
+      });
 
-    let recaptchaOK = false;
+    // Contactページ専用初期化
+    function initContact() {
+      const form = document.querySelector("form#form");
+      if (!form || form.dataset.initialized === "1") return;
 
-    const resetValidation = () => {
-      email.setCustomValidity("");
-      email.classList.remove("is-invalid");
-      errorMessage.textContent = "";
-    };
+      const formBtn = form.querySelector(".form__btn");
+      const person = form.querySelector("#name");
+      const email = form.querySelector("#email");
+      const message = form.querySelector("#message");
+      const errorMessage = form.querySelector(".form__errorMessage");
+      const recaptchaEl = form.querySelector(".g-recaptcha");
 
-    const validateEmail = () => {
-      resetValidation();
-      if (email.value.trim() === "") return false;
-      if (email.validity.typeMismatch) {
-        email.setCustomValidity("正しいメールアドレスを入力してください");
-        email.classList.add("is-invalid");
-        errorMessage.textContent = email.validationMessage;
-        return false;
+      let recaptchaOK = false;
+
+      function resetValidation() {
+        email.setCustomValidity("");
+        email.classList.remove("is-invalid");
+        if (errorMessage) errorMessage.textContent = "";
       }
-      return email.checkValidity();
-    };
+      function validateEmail() {
+        resetValidation();
+        if (email.value.trim() === "") return false;
+        if (email.validity.typeMismatch) {
+          email.setCustomValidity("正しいメールアドレスを入力してください");
+          email.classList.add("is-invalid");
+          if (errorMessage) errorMessage.textContent = email.validationMessage;
+          return false;
+        }
+        return email.checkValidity();
+      }
+      function validateForm() {
+        const isFilled =
+          person.value.trim() !== "" &&
+          email.value.trim() !== "" &&
+          message.value.trim() !== "";
+        const ok = isFilled && validateEmail() && recaptchaOK;
+        formBtn.classList.toggle("is-disabled", !ok);
+        formBtn.disabled = !ok;
+      }
 
-    const validateForm = () => {
-      const isFilled =
-        person.value.trim() !== "" &&
-        email.value.trim() !== "" &&
-        message.value.trim() !== "";
+      person.addEventListener("input", validateForm);
+      email.addEventListener("input", validateForm);
+      message.addEventListener("input", validateForm);
 
-      const emailOK = validateEmail();
-      const ok = isFilled && emailOK && recaptchaOK;
+      // reCAPTCHAコールバックをグローバルに1回だけ定義
+      if (!window.onRecaptcha) {
+        window.onRecaptcha = () => {
+          recaptchaOK = true;
+          validateForm();
+        };
+      }
+      if (!window.onRecaptchaExpired) {
+        window.onRecaptchaExpired = () => {
+          recaptchaOK = false;
+          validateForm();
+        };
+      }
 
-      formBtn.classList.toggle("is-disabled", !ok);
-      formBtn.disabled = !ok;
-    };
+      // reCAPTCHAを明示レンダリング（遷移後も毎回動く）
+      if (recaptchaEl) {
+        ensureRecaptcha().then(() => {
+          if (!recaptchaEl.dataset.widgetId && window.grecaptcha) {
+            const widgetId = window.grecaptcha.render(recaptchaEl, {
+              sitekey: recaptchaEl.dataset.sitekey,
+              size: recaptchaEl.dataset.size || "compact",
+              callback: window.onRecaptcha,
+              "expired-callback": window.onRecaptchaExpired,
+            });
+            recaptchaEl.dataset.widgetId = String(widgetId);
+          }
+        });
+      }
 
-    person.addEventListener("input", validateForm);
-    email.addEventListener("input", validateForm);
-    message.addEventListener("input", validateForm);
-
-    // reCAPTCHAコールバック（グローバルに公開）
-    window.onRecaptcha = function () {
-      recaptchaOK = true;
       validateForm();
-    };
-    window.onRecaptchaExpired = function () {
-      recaptchaOK = false;
-      validateForm();
-    };
+      form.dataset.initialized = "1";
+    }
 
-    validateForm();
-  });
+    // すべてのページ遷移で再初期化
+    const run = () => {
+      initContact();
+    };
+    addEventListener("astro:page-load", run);
+    addEventListener("astro:after-swap", run);
+
+    // フルリロード時の保険
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", run, { once: true });
+    } else {
+      run();
+    }
+  })();
 </script>
+
 <style>
   /* .form {
     margin: 0 auto;
