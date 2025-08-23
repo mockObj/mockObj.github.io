@@ -77,7 +77,7 @@ h1 {
 h1::after {
   content: "";
   display: block;
-  width: 70%;
+  width: 85%;
   /* 親要素幅いっぱい */
   height: 4px;
   background: var(--white);
