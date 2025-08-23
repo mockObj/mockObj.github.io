@@ -51,9 +51,13 @@ import { ViewTransitions } from "astro:transitions";
               ) : null
             }
             <slot name="aboveContent" />
-            <div class="content">
-              <slot />
-            </div>
+            {
+              Astro.slots.has("default") ? (
+                <div class="content">
+                  <slot />
+                </div>
+              ) : null
+            }
           </main>
           <aside class="navigation">
             <Navigation />
