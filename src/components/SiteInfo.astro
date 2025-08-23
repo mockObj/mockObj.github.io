@@ -45,15 +45,16 @@ const { siteUrl, hashtag, webRiddleUrl } = Astro.props;
   .site-info-button,
   .hashtag-button {
     background-color: var(--orange);
-    color: var(--text);
+    color: var(--white);
     cursor: pointer;
     transition: transform 0.2s ease;
     margin: 0 0.5rem;
+    border: none;
     font-size: 1.5rem;
     border-radius: 6px;
     overflow: hidden;
-    /* // 右下にドロップシャドウ */
-    box-shadow: 1px 1px 1px rgba(0, 0, 0, 1);
+    /* 周りに影*/
+    box-shadow: 0 2px 4px rgba(0, 55, 116, 0.2);
   }
 
   .site-info-button:hover,
