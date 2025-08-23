@@ -1,4 +1,4 @@
-function initMenu() {
+export function initMenu() {
   const burger  = document.querySelector(".hamburger");
   const overlay = document.getElementById("nav-overlay");
   const closeBtn = overlay?.querySelector(".nav-close");

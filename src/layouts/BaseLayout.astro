@@ -72,7 +72,13 @@ import { ViewTransitions } from "astro:transitions";
       <Footer />
     </div>
     <script>
-      import "../scripts/menu.js";
+      import { initMenu } from "../scripts/menu.js";
+
+      // 1. 初回ロード時に実行
+      initMenu();
+
+      // 2. ページ遷移後にも実行
+      document.addEventListener("astro:after-swap", initMenu);
     </script>
   </body>
 </html>

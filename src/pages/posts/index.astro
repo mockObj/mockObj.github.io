@@ -34,7 +34,6 @@ const pageTitle = "Contents";
             eventTag={post.frontmatter.eventTag}
             date={post.frontmatter.date}
             pageUrl={post.url}
-            data-tag={post.frontmatter.eventTag}
           />
         ))
       }
@@ -97,22 +96,47 @@ const pageTitle = "Contents";
   }
 </style>
 <script is:inline>
-  document.addEventListener("DOMContentLoaded", () => {
+  // フィルターのロジックを関数化する
+  function initFilterLogic() {
     const buttons = document.querySelectorAll(".filter-btn");
     const cards = document.querySelectorAll(".content-card");
 
-    buttons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        buttons.forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
+    // ボタンやカードが存在しないページでは何もしない
+    if (buttons.length === 0 || cards.length === 0) {
+      return;
+    }
 
-        const tag = btn.getAttribute("data-tag");
-        cards.forEach((card) => {
+    buttons.forEach((btn) => {
+      // 古いイベントリスナーが残っている可能性を考慮し、一度クローンして置き換える
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+
+      newBtn.addEventListener("click", () => {
+        // activeクラスの付け替えは、新しいボタンの集合に対して行う
+        document
+          .querySelectorAll(".filter-btn")
+          .forEach((b) => b.classList.remove("active"));
+        newBtn.classList.add("active");
+
+        const tag = newBtn.getAttribute("data-tag");
+        document.querySelectorAll(".content-card").forEach((card) => {
           const cardTag = card.getAttribute("data-tag");
-          card.style.display =
-            tag === "all" || tag === cardTag ? "block" : "none";
+          card.style.display = tag === "all" || tag === cardTag ? "" : "none";
         });
       });
     });
-  });
+    // 初期状態でアクティブなボタンを再設定
+    const initialActiveButton = document.querySelector(
+      '.filter-btn[data-tag="all"]',
+    );
+    if (initialActiveButton) {
+      initialActiveButton.classList.add("active");
+    }
+  }
+
+  // 1. 初回ロード時に実行
+  initFilterLogic();
+
+  // 2. ページ遷移後にも実行
+  document.addEventListener("astro:after-swap", initFilterLogic);
 </script>
