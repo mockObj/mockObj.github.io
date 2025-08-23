@@ -2,7 +2,7 @@
 layout: ../../layouts/MarkdownPostLayout.astro
 title: '友だち追加謎'
 subtitle: ' '
-image: '/mv/lineTomo.jpg'
+image: '/mv/kv_tomodachi.png'
 pubDate: 2025-01-01
 date: "2025.01-"
 description: 'Sheep Rhythmの公式LINEアカウントを登録することで遊ぶことのできる、団体開設を記念するLINE謎です。'

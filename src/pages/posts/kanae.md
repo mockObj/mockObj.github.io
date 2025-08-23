@@ -2,7 +2,7 @@
 layout: ../../layouts/MarkdownPostLayout.astro
 title: '鼎 -KANAE-'
 subtitle: ' '
-image: '/mv/kv_kanae.jpg'
+image: '/mv/kv_kanae.png'
 pubDate: 2025-09-20
 date: "2025.09"
 description: '普通のスコアアタックとは一線を画す、新しいスコアアタック形式のナゾトキゲームが誕生！'
