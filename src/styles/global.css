@@ -109,7 +109,7 @@ h1::after {
   position: fixed;
   top: 5px;
   left: 5px;
-  padding: 5px;
+  padding: 7.5px;
   cursor: pointer;
   aspect-ratio: 1;
   opacity: .4;
@@ -118,9 +118,9 @@ h1::after {
 
 .hamburger .line {
   display: block;
-  width: 20px;
-  height: 2.5px;
-  margin-bottom: 5px;
+  width: 30px;
+  height: 3px;
+  margin-bottom: 7.5px;
   background-color: var(--text);
   border-radius: 1px;
 }
