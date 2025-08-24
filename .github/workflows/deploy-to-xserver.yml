@@ -29,9 +29,9 @@ jobs:
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.XSERVER_FTP_HOST }}
-          username: ${{ secrets.XSERVER_FTP_USER }}
-          password: ${{ secrets.XSERVER_FTP_PASS }}
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
           protocol: ftps
           port: 21
           local-dir: dist
