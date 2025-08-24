@@ -4,9 +4,9 @@ const { memberName, memberUrl, memberImage } = Astro.props;
 
 <div class="member-card">
   <div class="member-circle">
-    <a href={memberUrl} target="_blank" rel="noopener noreferrer">
-      <img src={memberImage} alt={memberName} width="200" height="200" />
-    </a>
+    <!-- <a href={memberUrl} target="_blank" rel="noopener noreferrer"> -->
+    <img src={memberImage} alt={memberName} width="200" height="200" />
+    <!-- </a> -->
   </div>
   <h3 class="member-name">{memberName}</h3>
   <a href={memberUrl} target="_blank" rel="noopener noreferrer">
@@ -31,6 +31,7 @@ const { memberName, memberUrl, memberImage } = Astro.props;
     transition: transform 0.2s ease;
     position: relative;
     overflow: hidden;
+    border-radius: var(--radius);
   }
   .member-card:hover {
     transform: rotate(0.3deg) scale(1.01);
@@ -54,6 +55,7 @@ const { memberName, memberUrl, memberImage } = Astro.props;
 
   .member-card:hover::after {
     animation: border-shine 1s linear forwards;
+    pointer-events: none;
   }
 
   @keyframes border-shine {

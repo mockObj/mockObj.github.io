@@ -6,8 +6,8 @@ name: Deploy to Xserver
 on:
   push:
     branches:
-      - main
-
+      - working
+      - prod
 # Sets permissions for the GITHUB_TOKEN to allow read access.
 permissions:
   contents: read
