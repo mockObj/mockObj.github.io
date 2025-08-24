@@ -1,38 +1,64 @@
+# Name of the workflow
 name: Deploy to Xserver
 
+# Controls when the action will run.
+# This workflow runs on push events to the "main" branch.
 on:
   push:
     branches:
       - main
-    paths:
-      - dist/**
-      - .github/**
 
+# Sets permissions for the GITHUB_TOKEN to allow read access.
 permissions:
   contents: read
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 jobs:
+  # This workflow contains a single job called "deploy".
   deploy:
-    runs-on: ubuntu-latest
+    # Specifies the environment where the job will run.
+    # This is necessary to access the secrets you created.
     environment: github-pages
-    steps:
-      - uses: actions/checkout@v4
 
+    # The type of runner that the job will run on.
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job.
+    steps:
+      # Step 1: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Sets up a specific version of Node.js.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - run: npm ci
-      - run: npm run build
+      # Step 3: Installs project dependencies using 'npm ci' for a clean install.
+      - name: Install dependencies
+        run: npm ci
 
+      # Step 4: Builds the project for production.
+      - name: Build project
+        run: npm run build
+
+      # Step 5: Deploys the built files to your FTP server.
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
+          # FTP server address from your GitHub secrets.
           server: ${{ secrets.FTP_HOST }}
+          # FTP username from your GitHub secrets.
           username: ${{ secrets.FTP_USER }}
+          # FTP password from your GitHub secrets.
           password: ${{ secrets.FTP_PASS }}
+          # Use FTPS for a secure connection.
           protocol: ftps
+          # Standard FTP port.
           port: 21
-          local-dir: dist
+          # The local directory to upload from (your build output).
+          local-dir: ./dist/
+          # The remote directory on the server to deploy to.
+          # This will upload the contents of ./dist/ into /public_html/
           server-dir: /public_html/
