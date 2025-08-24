@@ -2,7 +2,7 @@
 layout: ../../layouts/MarkdownPostLayout.astro
 title: 'TRIPLE'
 subtitle: 'room666 vol.1'
-image: '/mv/kv_triple.jpg'
+image: '/mv/kv_TRIPLE.png'
 pubDate: 2025-02-21
 date: "2025.02-"
 description: 'NANICAで遊べる謎解きゲームシリーズ『room666』の第一弾となるコンテンツです。'

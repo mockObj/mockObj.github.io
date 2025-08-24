@@ -188,15 +188,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 </script>
 
 <style>
-  /* .form {
-    margin: 0 auto;
-    max-width: 600px;
-  }
-  .form__cont {
-    margin: 0 auto;
-    margin-bottom: 1rem;
-  } */
-
   /* コンテナを中央に配置し、内部は左揃え */
   .contact {
     margin: 4rem auto; /* 上下の余白 ＋ 中央揃え */
@@ -205,6 +196,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     margin: 0 0 1rem;
     font-size: 1.5rem;
     text-align: left; /* タイトル左揃え */
+    font-weight: 200;
   }
 
   /* フォームカード */
@@ -213,57 +205,66 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     gap: 1rem; /* 各要素の間隔 */
     padding: 1.5rem;
     text-align: left; /* 内部左揃え */
-  }
-
-  .form__cont {
-    display: grid;
-    gap: 0.5rem;
-  }
-  .form__text,
-  .form__textarea {
-    width: 100%;
-  }
-
-  .g-recaptcha {
-    margin-top: 0.5rem;
-  } /* 左揃えのまま */
-
-  .form__btn {
-    margin-top: 0.5rem;
-    padding: 0.8rem 1.2rem;
-    border-radius: 999px; /* ピル形 */
-  }
-
-  .form__required {
-    font-size: 0.875rem;
-    color: red;
-  }
-
-  /* お好みでエラー表示の見た目を簡単に */
-  .is-invalid {
-    outline: 2px solid #f87171;
-  }
-  /* フォームは画面幅内に収める */
-  .form {
     max-width: 640px;
     width: 100%;
     margin: 0 auto;
     box-sizing: border-box;
   }
 
-  /* グリッド子を縮め可にして横はみ出し防止 */
+  .form__cont {
+    display: grid;
+    gap: 0.5rem;
+  }
   .form__contInner {
-    min-width: 0;
+    min-width: 0; /* グリッド子を縮め可にして横はみ出し防止 */
   }
 
-  /* 入力要素は親幅を超えない */
   .form__text,
   .form__textarea {
+    width: 100%;
     max-width: 100%;
+    padding: 0.9rem 1rem; /* 高さを出す */
+    font-size: 1rem;
+    font-weight: 300; /* 入力文字を細字 */
+    border: 1px solid #ccc;
+    border-radius: 6px;
     box-sizing: border-box;
   }
 
-  /* 極小幅でのパディング圧縮（必要最小） */
+  /* プレースホルダー */
+  .form__text::placeholder,
+  .form__textarea::placeholder {
+    font-weight: 300;
+    color: #aaa;
+  }
+
+  /* reCAPTCHA */
+  .g-recaptcha {
+    margin-top: 0.5rem;
+  }
+
+  /* ボタン */
+  .form__btn {
+    margin-top: 0.5rem;
+    padding: 0.8rem 2.4rem;
+    border-radius: 999px; /* ピル形 */
+    display: inline-block;
+    width: auto;
+    justify-self: center;
+  }
+
+  /* 必須ラベル */
+  .form__required {
+    font-size: 0.875rem;
+    color: red;
+  }
+
+  /* エラー表示 */
+  .is-invalid {
+    outline: 2px solid #f87171;
+  }
+
+  /* 極小幅でのパディング圧縮 */
   @media (max-width: 360px) {
     .form {
       padding-inline: 0.75rem;

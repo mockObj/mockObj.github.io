@@ -2,7 +2,7 @@
 layout: ../../layouts/MarkdownPostLayout.astro
 title: 'DIGIT'
 subtitle: 'room666 vol.2'
-image: '/mv/kv_digit.jpg'
+image: '/mv/kv_DIGIT.png'
 pubDate: 2025-08-30
 date: "2025.08-"
 description: 'NANICAで遊べる謎解きゲームシリーズ『room666』の第二弾となるコンテンツです。'
