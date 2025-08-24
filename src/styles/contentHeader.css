@@ -22,7 +22,7 @@
   margin: auto 0;
   border-radius: var(--radius-pill);
   text-decoration: none;
-  color: var(--white);
+  color: #FFFFFF;
   background-color: var(--accent);
   position: relative;
 }
