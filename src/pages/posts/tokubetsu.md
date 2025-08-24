@@ -2,7 +2,7 @@
 layout: ../../layouts/MarkdownPostLayout.astro
 title: 'トク別展示'
 subtitle: ' '
-image: '/mv/kv_トク別展示.png'
+image: '/mv/kv_tokubetsu.png'
 pubDate: 2025-03-15
 date: "2025.03"
 description: '謎解きの文化祭『謎キャン 2025』にて出展した「展示型」の謎解きイベントです。'
