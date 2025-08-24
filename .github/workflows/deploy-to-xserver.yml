@@ -61,4 +61,4 @@ jobs:
           local-dir: ./dist/
           # The remote directory on the server to deploy to.
           # This will upload the contents of ./dist/ into /public_html/
-          server-dir: /public_html/
+          server-dir: /sheeprhythm/public_html/
