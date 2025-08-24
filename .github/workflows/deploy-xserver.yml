@@ -1,5 +1,5 @@
 # Name of the workflow
-name: Deploy to Xserver
+name: Deploy to Xserver working
 
 # Controls when the action will run.
 # This workflow runs on push events to the "main" branch.
@@ -57,6 +57,7 @@ jobs:
           protocol: ftps
           # Standard FTP port.
           port: 21
+          passive: true
           # The local directory to upload from (your build output).
           local-dir: ./dist/
           # The remote directory on the server to deploy to.
