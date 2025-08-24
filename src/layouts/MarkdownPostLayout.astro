@@ -17,7 +17,7 @@ import "../styles/contentHeader.css";
     <ContentHeader date={frontmatter.date} eventTag={frontmatter.eventTag} />
     <h2 class="content-name">{frontmatter.title}</h2>
     <h3 class="content-subtitle">{frontmatter.subtitle}</h3>
-    <h4 class="content-abstract-title">▶概要</h4>
+    <h4 class="content-abstract-title">概要</h4>
     <div class="content-detail"><slot /></div>
     <SiteInfo
       siteUrl={frontmatter.siteUrl}
@@ -27,7 +27,7 @@ import "../styles/contentHeader.css";
     {
       frontmatter.creators.length > 0 && (
         <>
-          <h4 class="content-abstract-title">▶制作に携わったクリエイター</h4>
+          <h4 class="content-abstract-title">制作に携わったクリエイター</h4>
           <CreatorInfo creators={frontmatter.creators} />
         </>
       )
@@ -75,6 +75,22 @@ import "../styles/contentHeader.css";
     padding: 0 0;
     font-size: 1.9rem;
     color: var(--text);
+  }
+  .content-abstract-title {
+    position: relative;
+    padding-left: 2rem; /* 画像幅 + 余白 */
+  }
+
+  .content-abstract-title::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.9rem; /* bullet のサイズ調整 */
+    height: 1.9rem;
+    background: url("/iconsUseful/bulletTriangle.png") no-repeat center;
+    background-size: contain;
   }
   .content-detail {
     margin: 0.5rem;

@@ -47,8 +47,8 @@ body {
 }
 
 :lang(ja) {
-  font-family: "Lato", "M PLUS 1p", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
-  font-weight: 700;
+  font-family: "Montserrat", "M PLUS 1p", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-weight: 600;
 }
 
 body {
@@ -72,7 +72,7 @@ h1 {
   font-size: 4rem;
   color: var(--white);
   text-align: center;
-  /* text-transform: uppercase; */
+  text-transform: uppercase;
 }
 
 h1::after {
@@ -142,7 +142,7 @@ h1::after {
   margin-bottom: 1rem;
   text-decoration: none;
   font-size: 1.2rem;
-  /* text-transform: uppercase; */
+  text-transform: uppercase;
   color: var(--text);
 }
 
