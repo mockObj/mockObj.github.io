@@ -14,7 +14,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: github-pages   # Environment名を指定
+    environment: github-pages
     steps:
       - uses: actions/checkout@v4
 
@@ -23,7 +23,8 @@ jobs:
         with:
           node-version: 20
 
-      - run: pnpm install && pnpm build
+      - run: npm ci
+      - run: npm run build
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
