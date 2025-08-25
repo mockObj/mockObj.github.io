@@ -15,12 +15,20 @@ const pageTitle = "Contents";
 ---
 
 <BaseLayout pageTitle={pageTitle}>
-  <div slot="aboveContent" class="filter-buttons">
-    <button data-tag="all" class="filter-btn active">All</button>
-    <button data-tag="Event" class="filter-btn">Event</button>
-    <button data-tag="Goods" class="filter-btn">Goods</button>
-    <button data-tag="Web" class="filter-btn">Web</button>
-    <!-- <button data-tag="Others" class="filter-btn">Others</button> -->
+  <div slot="aboveContent">
+    <div class="filter-description">
+      <p>
+        各コンテンツをタップ・クリックすることで、コンテンツの詳細や<br
+        />制作に携わったクリエイターを見ることができます。
+      </p>
+    </div>
+    <div class="filter-buttons">
+      <button data-tag="all" class="filter-btn active">All</button>
+      <button data-tag="Event" class="filter-btn">Event</button>
+      <button data-tag="Goods" class="filter-btn">Goods</button>
+      <button data-tag="Web" class="filter-btn">Web</button>
+      <!-- <button data-tag="Others" class="filter-btn">Others</button> -->
+    </div>
   </div>
   <div class="contents-main">
     <div class="contents-container">
@@ -69,6 +77,14 @@ const pageTitle = "Contents";
   .content-card {
     width: 100%;
     margin: 0;
+  }
+  /* フィルター説明文 */
+  .filter-description {
+    color: var(--white);
+    text-align: center;
+    font-size: clamp(0.6rem, 2vw, 1.1rem);
+    max-width: 800px;
+    margin: 0 auto;
   }
   /* ボタンスタイル追加 */
   .filter-buttons {
