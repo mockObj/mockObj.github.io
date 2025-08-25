@@ -65,6 +65,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     <!-- v2 Checkbox。コールバックでボタン有効化を更新 -->
     <!-- https://www.suzunatsu.com/post/astro-ssgform-recaptcha/   参考 -->
+
     <div
       class="g-recaptcha mt-4 flex justify-center"
       data-sitekey="6LeFsakrAAAAACpGBmzZBagYuJn9EmtMepLH0vQW"
@@ -81,110 +82,122 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 </BaseLayout>
 
 <script>
-  (() => {
-    // reCAPTCHAを必要なときだけ読み込む
-    const ensureRecaptcha = () =>
-      new Promise((resolve) => {
-        if (window.grecaptcha) return resolve();
-        const s = document.createElement("script");
-        s.src = "https://www.google.com/recaptcha/api.js?render=explicit";
-        s.async = true;
-        s.defer = true;
-        s.onload = () => resolve();
-        document.head.appendChild(s);
-      });
+  // --- reCAPTCHAのAPI読み込みを管理する部分 ---
+  let resolveRecaptchaPromise;
+  const recaptchaReadyPromise = new Promise((resolve) => {
+    resolveRecaptchaPromise = resolve;
+  });
 
-    // Contactページ専用初期化
-    function initContact() {
-      const form = document.querySelector("form#form");
-      if (!form || form.dataset.initialized === "1") return;
-
-      const formBtn = form.querySelector(".form__btn");
-      const person = form.querySelector("#name");
-      const email = form.querySelector("#email");
-      const message = form.querySelector("#message");
-      const errorMessage = form.querySelector(".form__errorMessage");
-      const recaptchaEl = form.querySelector(".g-recaptcha");
-
-      let recaptchaOK = false;
-
-      function resetValidation() {
-        email.setCustomValidity("");
-        email.classList.remove("is-invalid");
-        if (errorMessage) errorMessage.textContent = "";
-      }
-      function validateEmail() {
-        resetValidation();
-        if (email.value.trim() === "") return false;
-        if (email.validity.typeMismatch) {
-          email.setCustomValidity("正しいメールアドレスを入力してください");
-          email.classList.add("is-invalid");
-          if (errorMessage) errorMessage.textContent = email.validationMessage;
-          return false;
-        }
-        return email.checkValidity();
-      }
-      function validateForm() {
-        const isFilled =
-          person.value.trim() !== "" &&
-          email.value.trim() !== "" &&
-          message.value.trim() !== "";
-        const ok = isFilled && validateEmail() && recaptchaOK;
-        formBtn.classList.toggle("is-disabled", !ok);
-        formBtn.disabled = !ok;
-      }
-
-      person.addEventListener("input", validateForm);
-      email.addEventListener("input", validateForm);
-      message.addEventListener("input", validateForm);
-
-      // reCAPTCHAコールバックをグローバルに1回だけ定義
-      if (!window.onRecaptcha) {
-        window.onRecaptcha = () => {
-          recaptchaOK = true;
-          validateForm();
-        };
-      }
-      if (!window.onRecaptchaExpired) {
-        window.onRecaptchaExpired = () => {
-          recaptchaOK = false;
-          validateForm();
-        };
-      }
-
-      // reCAPTCHAを明示レンダリング（遷移後も毎回動く）
-      if (recaptchaEl) {
-        ensureRecaptcha().then(() => {
-          if (!recaptchaEl.dataset.widgetId && window.grecaptcha) {
-            const widgetId = window.grecaptcha.render(recaptchaEl, {
-              sitekey: recaptchaEl.dataset.sitekey,
-              size: recaptchaEl.dataset.size || "compact",
-              callback: window.onRecaptcha,
-              "expired-callback": window.onRecaptchaExpired,
-            });
-            recaptchaEl.dataset.widgetId = String(widgetId);
-          }
-        });
-      }
-
-      validateForm();
-      form.dataset.initialized = "1";
+  // Googleのスクリプトが読み込み完了した際に、このグローバル関数を呼び出す
+  window.onRecaptchaApiReady = () => {
+    if (window.grecaptcha && window.grecaptcha.render) {
+      resolveRecaptchaPromise();
     }
+  };
 
-    // すべてのページ遷移で再初期化
-    const run = () => {
-      initContact();
+  const ensureRecaptcha = () => {
+    // スクリプトタグがまだページに存在しない場合のみ、一度だけ挿入する
+    if (
+      !document.querySelector(
+        'script[src^="https://www.google.com/recaptcha/api.js"]',
+      )
+    ) {
+      const s = document.createElement("script");
+      // Google公式のonloadパラメータを使い、読み込み完了時にonRecaptchaApiReadyを呼ぶ
+      s.src =
+        "https://www.google.com/recaptcha/api.js?onload=onRecaptchaApiReady&render=explicit";
+      s.async = true;
+      s.defer = true;
+      document.head.appendChild(s);
+    }
+    // API準備完了を待つPromiseを返す
+    return recaptchaReadyPromise;
+  };
+
+  // --- フォームの初期化とバリデーションロジック ---
+
+  // ウィジェット用のコールバックをグローバルに用意
+  window.onRecaptcha = () => {};
+  window.onRecaptchaExpired = () => {};
+
+  function initContact() {
+    const form = document.querySelector("form#form");
+    if (!form || form.dataset.initialized === "true") return;
+    form.dataset.initialized = "true";
+
+    const formBtn = form.querySelector(".form__btn");
+    const person = form.querySelector("#name");
+    const email = form.querySelector("#email");
+    const message = form.querySelector("#message");
+    const errorMessage = form.querySelector(".form__errorMessage");
+    const recaptchaEl = form.querySelector(".g-recaptcha");
+    let recaptchaOK = false;
+
+    const resetValidation = () => {
+      email.setCustomValidity("");
+      email.classList.remove("is-invalid");
+      if (errorMessage) errorMessage.textContent = "";
     };
-    addEventListener("astro:page-load", run);
-    addEventListener("astro:after-swap", run);
 
-    // フルリロード時の保険
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", run, { once: true });
-    } else {
-      run();
+    const validateEmail = () => {
+      resetValidation();
+      if (email.value.trim() === "") return false;
+      if (email.validity.typeMismatch) {
+        email.setCustomValidity("正しいメールアドレスを入力してください");
+        email.classList.add("is-invalid");
+        if (errorMessage) errorMessage.textContent = email.validationMessage;
+        return false;
+      }
+      return email.checkValidity();
+    };
+
+    const validateForm = () => {
+      const isFilled =
+        person.value.trim() !== "" &&
+        email.value.trim() !== "" &&
+        message.value.trim() !== "";
+      const ok = isFilled && validateEmail() && recaptchaOK;
+      formBtn.classList.toggle("is-disabled", !ok);
+      formBtn.disabled = !ok;
+    };
+
+    person.addEventListener("input", validateForm);
+    email.addEventListener("input", validateForm);
+    message.addEventListener("input", validateForm);
+
+    window.onRecaptcha = () => {
+      recaptchaOK = true;
+      validateForm();
+    };
+
+    window.onRecaptchaExpired = () => {
+      if (window.grecaptcha) {
+        window.grecaptcha.reset();
+      }
+      recaptchaOK = false;
+      validateForm();
+    };
+
+    if (recaptchaEl) {
+      ensureRecaptcha().then(() => {
+        if (recaptchaEl.innerHTML !== "") {
+          recaptchaEl.innerHTML = "";
+        }
+        window.grecaptcha.render(recaptchaEl, {
+          sitekey: recaptchaEl.dataset.sitekey,
+          size: window.innerWidth <= 400 ? "compact" : "normal",
+          callback: window.onRecaptcha,
+          "expired-callback": window.onRecaptchaExpired,
+        });
+      });
     }
-  })();
+
+    validateForm();
+  }
+
+  // AstroのView Transition環境では、このイベントリスナー１つで
+  // 通常のリロードとページ遷移の両方に対応するのが最もシンプルで確実です。
+  document.addEventListener("astro:page-load", initContact);
 </script>
 
 <style>
