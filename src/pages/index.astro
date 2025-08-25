@@ -4,23 +4,62 @@ const pageTitle = "Home";
 ---
 
 <BaseLayout pageTitle={pageTitle}>
-	<!-- <div class="content-pad">
-		<img src="/iconsUseful/Hello.png" alt="Hello" class="description" />
-		<button class="inDetail" onclick="location.href='/about'">
-			団体についてもっと見る▶
-		</button>
-	</div> -->
+	<div class="description-container">
+		<div class="description-image">
+			<img src="/iconsUseful/sr_icon_whiteIndigo.svg" alt="Description Image" />
+		</div>
+		<div class="description">
+			<h2 class="description-title">
+				What is <highlight>Sheep Rhythm?</highlight>
+			</h2>
+			<p class="description-main-text">
+				"自由な発想"をコンセプトに<br />新しい謎解き体験を届ける
+			</p>
+			<p class="description-sub-text">
+				をテーマに掲げて創作を行う<br />2025年1月設立の制作団体です
+			</p>
+		</div>
+	</div>
 </BaseLayout>
 <style>
-	.description {
-		width: 100%;
-		margin: auto auto;
-		padding: 1rem;
-		display: block;
-		border-radius: 6px;
-		text-align: center;
-		object-fit: cover;
+	.description-container {
+		display: flex;
+		flex-direction: row; /* 左右に並べる */
+		align-items: center; /* 縦位置を揃える */
+		justify-content: flex-start;
+		padding: 3rem;
+		box-sizing: border-box;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+		position: relative;
+		overflow: hidden;
+		border-radius: var(--radius);
+		margin: 1rem 1rem;
 	}
+
+	.description-image {
+		flex: 0 0 auto; /* 固定幅 */
+		max-width: 40%; /* 必要なら調整 */
+		position: relative;
+	}
+
+	.description-image img {
+		width: 100%;
+		height: auto;
+		display: block;
+	}
+
+	.description {
+		flex: 1;
+		margin-left: 1rem;
+		position: relative;
+		text-align: right;
+	}
+	highlight {
+		background-color: var(--text);
+		color: var(--white);
+		white-space: nowrap; /* 改行を禁止 */
+	}
+
 	.inDetail {
 		display: block;
 		margin: 0.2rem auto;
@@ -35,5 +74,33 @@ const pageTitle = "Home";
 	}
 	.content-pad {
 		padding: 1rem;
+	}
+	@media screen and (max-width: 768px) {
+		.description-container {
+			flex-direction: column; /* 縦に並べる */
+			align-items: center; /* 全体を中央寄せ */
+			text-align: center; /* ブロック全体は中央に */
+			font-size: smaller;
+			padding: 1rem;
+		}
+
+		.description-image {
+			max-width: 100%;
+			display: flex;
+			justify-content: center; /* 画像を中央に */
+		}
+
+		.description-image img {
+			width: 80%;
+			height: auto;
+			display: block;
+		}
+
+		.description {
+			width: 100%;
+			max-width: 600px; /* 適度な横幅を制限して中央に */
+			margin-top: 1rem;
+			text-align: right; /* テキスト内容は左揃え */
+		}
 	}
 </style>
