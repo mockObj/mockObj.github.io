@@ -53,6 +53,7 @@ const pageTitle = "Home";
 		margin-left: 1rem;
 		position: relative;
 		text-align: right;
+		display: inline-block;
 	}
 	highlight {
 		background-color: var(--text);
@@ -75,7 +76,7 @@ const pageTitle = "Home";
 	.content-pad {
 		padding: 1rem;
 	}
-	@media screen and (max-width: 768px) {
+	@media screen and (max-width: 550px) {
 		.description-container {
 			flex-direction: column; /* 縦に並べる */
 			align-items: center; /* 全体を中央寄せ */
@@ -98,7 +99,7 @@ const pageTitle = "Home";
 
 		.description {
 			width: 100%;
-			max-width: 600px; /* 適度な横幅を制限して中央に */
+			max-width: 300px; /* 適度な横幅を制限して中央に */
 			margin-top: 1rem;
 			text-align: right; /* テキスト内容は左揃え */
 		}
