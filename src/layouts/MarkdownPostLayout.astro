@@ -95,13 +95,12 @@ import "../styles/contentHeader.css";
   .content-detail {
     margin: 0.5rem;
     padding: 0;
-    font-size: 1.3rem;
+    font-size: 1rem;
     color: var(--text);
   }
 
-  .content-detail:lang(ja),
-  .content-detail :lang(ja) {
-    font-weight: 900 !important;
+  :global(.content-detail) {
+    font-weight: 200 !important;
   }
 
   :global(.content-info .content-header) {
@@ -121,6 +120,10 @@ import "../styles/contentHeader.css";
 
     :global(.content-info .content-header) {
       font-size: 0.8rem;
+    }
+
+    .content-detail {
+      font-size: 0.75rem;
     }
   }
 </style>
