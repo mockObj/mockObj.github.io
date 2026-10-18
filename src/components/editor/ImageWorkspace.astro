@@ -1,0 +1,59 @@
+<section class="workspace" aria-label="画像を取り込み、目の範囲を指定">
+        <div class="image-workspace">
+          <div class="image-toolbar">
+            <span class="current-image-name" id="current-image-name">画像をドロップ</span>
+            <button class="button button-small" id="choose-images" type="button">画像を選ぶ <span aria-hidden="true">＋</span></button>
+          </div>
+          <div class="image-stage" id="image-stage">
+            <canvas id="eye-canvas" tabindex="0" aria-label="目の範囲。円の外からドラッグして指定、円の内側で移動、円周でサイズ変更。矢印キーでも移動できます。">画像上をドラッグして目の範囲を指定します。</canvas>
+            <div class="stage-empty" id="stage-empty">
+              <p>画像をドロップ</p>
+              <span>ファイル・画像URLをドロップ</span>
+              <span class="empty-paste-hint">コピーした画像の貼り付けにも対応</span>
+            </div>
+            <div class="drop-message" aria-hidden="true">ここにドロップ</div>
+          </div>
+          <div class="canvas-instructions">
+            <span><i class="instruction-circle" aria-hidden="true"></i>円の外からドラッグして指定</span>
+            <span>円内で移動 / 円周でサイズ変更</span>
+          </div>
+        </div>
+
+        <aside class="image-details" aria-label="画像の設定">
+          <div class="preview-row">
+            <div class="preview-label">
+              <h2>表示プレビュー</h2>
+              <p>目の中心を<br>マスの中心に。</p>
+            </div>
+            <div class="crop-preview" id="crop-preview" aria-label="サイト上の切り抜きプレビュー"></div>
+          </div>
+
+          <div class="radius-control">
+            <div class="field-heading"><label for="eye-radius">円の大きさ</label><output for="eye-radius" id="radius-value">20%</output></div>
+            <input id="eye-radius" type="range" min="2" max="50" step="0.1" value="20" disabled>
+            <button class="text-button reset-eye" id="reset-eye" type="button" disabled>円を中央に戻す <span aria-hidden="true">↺</span></button>
+          </div>
+
+          <div class="field">
+            <label for="image-title">画像タイトル</label>
+            <input id="image-title" type="text" maxlength="160" placeholder="例：振り向く目" autocomplete="off" disabled>
+          </div>
+          <div class="field source-field">
+            <label for="source-url">元の投稿・リンク</label>
+            <input id="source-url" type="url" placeholder="https://x.com/…/status/…" inputmode="url" autocomplete="off" spellcheck="false">
+            <p class="field-note">画像は保存したファイルか画像URLを指定。</p>
+            <p class="pending-source" id="pending-source" hidden>画像を追加すると、このリンクを設定します。</p>
+          </div>
+          <div class="field">
+            <label for="image-url">画像URLから追加</label>
+            <div class="input-with-button">
+              <input id="image-url" type="url" placeholder="https://pbs.twimg.com/…" inputmode="url" autocomplete="off" spellcheck="false">
+              <button class="button" id="load-image-url" type="button">取込</button>
+            </div>
+          </div>
+          <div class="save-actions">
+            <button class="button button-dark save-button" id="save-image" type="button" disabled>保存して反映 <span aria-hidden="true">↗</span></button>
+            <button class="text-button delete-image" id="delete-image" type="button" disabled>画像を削除</button>
+          </div>
+        </aside>
+      </section>

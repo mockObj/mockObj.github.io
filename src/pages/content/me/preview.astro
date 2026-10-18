@@ -1,0 +1,13 @@
+---
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import EyeField from '../../../components/viewer/EyeField.astro';
+import FieldChrome from '../../../components/viewer/FieldChrome.astro';
+---
+<SiteLayout title="プレビュー — eyes" mode="draft" robots="noindex,nofollow">
+  <EyeField />
+  <FieldChrome />
+  <a class="preview-back" href="/content/me/editor/">← 編集に戻る（このブラウザの下書き）</a>
+</SiteLayout>
+<style>
+  .preview-back { position: fixed; z-index: 10; top: 18px; left: 20px; color: #ccc; background: #171717dd; border: 1px solid #444; padding: 10px 14px; font: 12px system-ui; text-decoration: none; }
+</style>

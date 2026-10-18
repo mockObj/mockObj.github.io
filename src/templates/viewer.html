@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja" data-me-portable="public">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111110">
+  <meta name="description" content="目を集める、終わりのない空間。">
+  <title>eyes</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23111110' d='M0 0h64v64H0z'/%3E%3Cellipse cx='32' cy='32' rx='18' ry='10' fill='none' stroke='%23aaa79e' stroke-width='2'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23aaa79e'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./viewer.css">
+</head>
+<body>
+  <main id="field" aria-label="目の空間。ドラッグ、スクロール、矢印キーで移動できます。" tabindex="0">
+    <canvas id="scene" aria-hidden="true"></canvas>
+    <div id="tiles"></div>
+    <div class="film-grain" aria-hidden="true"></div>
+    <div class="field-vignette" aria-hidden="true"></div>
+  </main>
+
+  <footer class="field-chrome">
+    <p class="gesture-hint" id="gesture-hint"><span aria-hidden="true">↔</span> drag / scroll</p>
+    <p class="source-hint" id="source-hint" aria-live="polite"></p>
+  </footer>
+  <p class="viewer-status" id="viewer-status" role="status"></p>
+  <noscript><p class="noscript">このサイトの表示には JavaScript が必要です。</p></noscript>
+  <script type="module" src="./viewer.js"></script>
+</body>
+</html>
