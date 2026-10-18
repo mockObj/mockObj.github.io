@@ -16,6 +16,8 @@ const ui = {
   importData: $('import-data'), exportData: $('export-data'), exportSite: $('export-site'),
   grid: $('placement-grid'), slotLabel: $('selected-slot-label'), clearSlot: $('clear-slot'),
   library: $('asset-library'), libraryEmpty: $('library-empty'), count: $('image-count'),
+  librarySearch: $('library-search'), libraryFilter: $('library-filter'),
+  librarySummary: $('library-summary'), libraryNoResults: $('library-no-results'),
   status: $('status-bar'), statusMessage: $('status-message'),
   loadError: $('load-error'), loadErrorMessage: $('load-error-message'), reload: $('reload-data'),
 };
@@ -54,7 +56,7 @@ function setStatus(message, state = '') {
 function updateControls() {
   const hasImage = Boolean(activeDraft());
   const blocked = working || !loadReady;
-  for (const control of [ui.choose, ui.newImage, ui.importUrl, ui.exportData, ui.exportSite, ui.source, ui.imageUrl]) control.disabled = blocked;
+  for (const control of [ui.choose, ui.newImage, ui.importUrl, ui.exportData, ui.exportSite, ui.source, ui.imageUrl, ui.librarySearch, ui.libraryFilter]) control.disabled = blocked;
   ui.importData.disabled = working;
   for (const control of [ui.title, ui.radius, ui.reset, ui.save, ui.remove]) control.disabled = blocked || !hasImage;
   ui.clearSlot.disabled = blocked || !collection.slots[selectedSlot];
@@ -68,6 +70,7 @@ function updateControls() {
     elements.badge.hidden = !dirtyIds.has(id);
     elements.place.disabled = blocked;
     elements.edit.disabled = blocked;
+    elements.remove.disabled = blocked;
   }
   for (const button of ui.grid.children) button.disabled = blocked;
 }
@@ -406,7 +409,7 @@ function renderGrid() {
     if (item) {
       const crop = document.createElement('span'); crop.className = 'crop-tile';
       slot.append(crop); createCrop(crop, item);
-    } else {
+    } else if (collection.items.length === 0) {
       const art = document.createElement('span');
       const kind = fallbackKind(index);
       art.className = `slot-art${getEyePreset(kind).symbol ? '' : ' is-photo'}`;
@@ -452,14 +455,36 @@ function updateSlotLabel() {
 function renderLibrary() {
   assetNodes.clear();
   const fragment = document.createDocumentFragment();
-  for (const item of collection.items) {
+  const groups = new Map();
+  const placements = new Map(collection.items.map(item => [item.id, []]));
+  collection.items.forEach((item, index) => {
+    if (!groups.has(item.image)) groups.set(item.image, []);
+    groups.get(item.image).push(index + 1);
+  });
+  collection.slots.forEach((id, index) => placements.get(id)?.push(index));
+  const search = ui.librarySearch.value.trim().toLocaleLowerCase();
+  const filter = ui.libraryFilter.value;
+  let duplicateCount = 0;
+  let unplacedCount = 0;
+  for (const [index, item] of collection.items.entries()) {
+    const sameImage = groups.get(item.image);
+    const placed = placements.get(item.id);
+    const duplicate = sameImage.length > 1;
+    if (duplicate) duplicateCount++;
+    if (!placed.length) unplacedCount++;
+    if (filter === 'duplicates' && !duplicate || filter === 'unplaced' && placed.length) continue;
+    if (search && !item.title.toLocaleLowerCase().includes(search)) continue;
     const card = document.createElement('div'); card.className = 'asset-card';
+    card.dataset.id = item.id;
     const place = document.createElement('button'); place.className = 'asset-place'; place.type = 'button';
     place.setAttribute('aria-label', `${item.title || '無題'}を選択中のマスに配置`);
     place.draggable = true;
-    const crop = document.createElement('span'); crop.className = 'crop-tile';
+    const original = document.createElement('img'); original.className = 'asset-original';
+    original.src = item.image; original.alt = item.title || '無題'; original.loading = 'lazy'; original.decoding = 'async'; original.draggable = false;
+    const number = document.createElement('span'); number.className = 'asset-number'; number.textContent = `#${index + 1}`;
     const title = document.createElement('span'); title.className = 'asset-title'; title.textContent = item.title || '無題';
-    place.append(crop, title); createCrop(crop, item);
+    title.title = item.title || '無題';
+    place.append(original, title);
     place.addEventListener('click', () => { void runAction(() => placeItem(item.id, selectedSlot)); });
     place.addEventListener('dragstart', event => {
       if (working) { event.preventDefault(); return; }
@@ -468,8 +493,17 @@ function renderLibrary() {
     });
     const meta = document.createElement('div'); meta.className = 'asset-meta';
     const count = document.createElement('span'); count.className = 'asset-placement-count';
-    const placed = collection.slots.filter(id => id === item.id).length;
-    count.textContent = placed ? `${placed}マスに配置` : '未配置';
+    count.textContent = placed.length ? `${placed.length}マスに配置` : '未配置';
+    const size = document.createElement('span'); size.className = 'asset-size'; size.textContent = `${item.width} × ${item.height}`;
+    meta.append(count, size);
+    const location = document.createElement('p'); location.className = 'asset-locations';
+    const coordinates = placed.map(slot => `${Math.floor(slot / 8) + 1}行${slot % 8 + 1}列`);
+    location.textContent = placed.length ? coordinates.slice(0, 3).join('・') + (placed.length > 3 ? ` ほか${placed.length - 3}マス` : '') : 'この画像を削除しても配置への影響はありません。';
+    location.title = coordinates.join('・');
+    const duplicateBadge = document.createElement('p'); duplicateBadge.className = 'asset-duplicate';
+    duplicateBadge.hidden = !duplicate;
+    duplicateBadge.textContent = duplicate ? `重複：${sameImage.map(number => `#${number}`).join('・')}` : '';
+    const actions = document.createElement('div'); actions.className = 'asset-actions';
     const edit = document.createElement('button'); edit.className = 'text-button asset-edit'; edit.type = 'button'; edit.textContent = '編集 ↗';
     edit.setAttribute('aria-label', `${item.title || '無題'}の目とリンクを編集`);
     edit.addEventListener('click', () => {
@@ -478,15 +512,39 @@ function renderLibrary() {
       ui.stage.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
       setStatus(`円とリンクを編集し「${ME_EDITOR_COMMIT_LABEL}」で確定してください。`);
     });
-    meta.append(count, edit);
+    const remove = document.createElement('button'); remove.className = 'text-button asset-delete'; remove.type = 'button'; remove.textContent = '削除';
+    remove.setAttribute('aria-label', `${item.title || '無題'}（登録${index + 1}）を削除`);
+    remove.addEventListener('click', () => { void runAction(() => deleteItem(item.id)); });
+    actions.append(edit, remove);
     const badge = document.createElement('span'); badge.className = 'asset-unsaved'; badge.textContent = '未保存'; badge.hidden = !dirtyIds.has(item.id);
-    card.append(place, meta, badge);
+    card.append(number, place, meta, location, duplicateBadge, actions, badge);
     fragment.append(card);
-    assetNodes.set(item.id, { card, place, edit, badge });
+    assetNodes.set(item.id, { card, place, edit, remove, badge });
   }
   ui.library.replaceChildren(fragment);
   ui.libraryEmpty.hidden = collection.items.length > 0;
   ui.count.textContent = String(collection.items.length);
+  ui.librarySummary.textContent = `登録 ${collection.items.length}件 ／ 重複 ${duplicateCount}件 ／ 未配置 ${unplacedCount}件`;
+  ui.libraryNoResults.hidden = !collection.items.length || assetNodes.size > 0;
+}
+
+async function deleteItem(id) {
+  const item = collection.items.find(item => item.id === id);
+  if (!item) return;
+  const placed = collection.slots.filter(slot => slot === id).length;
+  if (!window.confirm(`「${item.title || '無題'}」を登録画像から削除しますか？\nこの画像を配置した${placed}マスも空欄になります。`)) return;
+  const candidate = copyCollection(collection);
+  candidate.items = candidate.items.filter(item => item.id !== id);
+  candidate.slots = candidate.slots.map(slot => slot === id ? null : slot);
+  // Save successfully before removing the image from the editor.
+  await saveCollection(candidate);
+  collection = candidate;
+  unsavedCollection = false;
+  if (isPortableEditor) portableNeedsExport = true;
+  drafts.delete(id); dirtyIds.delete(id);
+  if (activeId === id) openItem(null);
+  renderArrangement();
+  setStatus(`「${item.title || '無題'}」を削除しました。${placed}マスを空欄にしました。`);
 }
 
 function renderArrangement() {
@@ -723,18 +781,11 @@ ui.save.addEventListener('click', () => {
 });
 ui.remove.addEventListener('click', () => {
   if (!activeId) return;
-  void runAction(async () => {
-    const id = activeId;
-    const candidate = copyCollection(collection);
-    candidate.items = candidate.items.filter(item => item.id !== id);
-    candidate.slots = candidate.slots.map(slot => slot === id ? null : slot);
-    drafts.delete(id); dirtyIds.delete(id);
-    activeId = null;
-    openItem(null);
-    await persist(candidate);
-    setStatus('画像と、その画像の配置を削除しました。');
-  });
+  void runAction(() => deleteItem(activeId));
 });
+for (const [control, event] of [[ui.librarySearch, 'input'], [ui.libraryFilter, 'change']]) {
+  control.addEventListener(event, () => { renderLibrary(); refreshCrops(); updateControls(); });
+}
 ui.clearSlot.addEventListener('click', () => {
   void runAction(async () => {
     const candidate = copyCollection(collection);

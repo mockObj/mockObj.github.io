@@ -27,6 +27,7 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const embeddedViewer = Boolean(document.getElementById('me-collection'));
 const textureRecords = new Map();
 let activeCollection = emptyCollection();
+let collectionReady = false;
 let itemLookup = new Map();
 let contentVersion = 0;
 let pool = [];
@@ -190,17 +191,18 @@ function bindTile(node, slot) {
   node.identity = identity;
   const item = itemLookup.get(activeCollection.slots[slot]);
   const presetKind = eyePattern[slot];
-  const art = item || getEyePreset(presetKind);
+  const art = item || (collectionReady && activeCollection.items.length === 0 ? getEyePreset(presetKind) : null);
   const appearance = fieldAppearance(slot);
   node.art = art;
   node.appearance = appearance;
-  node.textureKey = `${item ? 'item' : 'preset'}:${art.id}`;
+  node.textureKey = art ? `${item ? 'item' : 'preset'}:${art.id}` : '';
   node.tile.className = 'eye-tile';
-  node.surface.className = `eye-surface${art.symbol ? '' : ' is-photo'}`;
-  const source = safeUrl(art.sourceUrl);
+  node.tile.dataset.kind = item ? 'item' : art ? 'preset' : 'empty';
+  node.surface.className = `eye-surface${art && !art.symbol ? ' is-photo' : ''}`;
+  const source = safeUrl(art?.sourceUrl);
   node.tile.dataset.linked = String(Boolean(source));
   node.tile.dataset.source = source;
-  node.tile.dataset.title = art.title || '';
+  node.tile.dataset.title = art?.title || '';
   if (source) {
     node.tile.href = source;
     node.tile.target = '_blank';
@@ -215,6 +217,12 @@ function bindTile(node, slot) {
     node.tile.tabIndex = -1;
     node.tile.setAttribute('aria-hidden', 'true');
     node.tile.removeAttribute('aria-label');
+  }
+  if (!art) {
+    node.surface.replaceChildren();
+    node.content = null;
+    node.geometry = null;
+    return;
   }
   if (art.symbol) {
     node.surface.innerHTML = eyeMarkup(presetKind, appearance.light);
@@ -234,7 +242,8 @@ function bindTile(node, slot) {
     image.onerror = () => {
       if (node.identity !== identity) return;
       node.surface.classList.remove('is-photo');
-      node.surface.innerHTML = eyeMarkup('sheikah', appearance.light);
+      if (item) node.surface.replaceChildren();
+      else node.surface.innerHTML = eyeMarkup('sheikah', appearance.light);
       node.content = node.surface.firstElementChild;
       node.geometry = { x: 0, y: 0 };
       node.tile.setAttribute('aria-label', `${art.title || '画像'}（画像を読み込めません）の出典を開く`);
@@ -461,10 +470,11 @@ async function refreshCollection() {
     const loaded = await loadCollection();
     if (sequence !== reloadSequence) return;
     activeCollection = loaded;
+    collectionReady = true;
     itemLookup = new Map(loaded.items.map(item => [item.id, item]));
     const retained = new Set(loaded.slots.filter(Boolean).map(id => `item:${id}`));
     for (const key of textureRecords.keys()) {
-      if (key.startsWith('item:') && !retained.has(key)) {
+      if (key.startsWith('item:') && !retained.has(key) || loaded.items.length > 0 && key.startsWith('preset:')) {
         textureRecords.delete(key);
         fieldRenderer?.removeTexture(key);
       }

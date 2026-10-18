@@ -1,12 +1,11 @@
-<section class="placement-workspace" aria-label="8行8列の画像配置">
+---
+import RegisteredImages from './RegisteredImages.astro';
+---
+<section class="placement-workspace" aria-label="8行8列の画像配置と登録画像">
         <div class="grid-panel">
           <div class="panel-heading"><span id="selected-slot-label">配置先 1行 / 1列</span><button class="text-button" id="clear-slot" type="button" disabled>このマスを空ける <span aria-hidden="true">−</span></button></div>
           <div class="placement-grid" id="placement-grid" role="group" aria-label="配置するマスを選択"></div>
-          <p class="grid-note">端同士がつながる、8 × 8 の繰り返し。<br>空きマスには、いろいろな「目」が入ります。</p>
+          <p class="grid-note">端同士がつながる、8 × 8 の繰り返し。<br>画像を登録するとサンプルは消え、配置していないマスは空欄になります。</p>
         </div>
-        <div class="library-panel">
-          <div class="panel-heading"><h3>登録した画像 <span id="image-count">0</span></h3><span class="panel-note">ドラッグでも配置できます</span></div>
-          <div class="asset-library" id="asset-library"></div>
-          <div class="library-empty" id="library-empty"><p>画像を追加すると、ここに並びます。</p></div>
-        </div>
+        <RegisteredImages />
       </section>
