@@ -5,6 +5,7 @@ body{position:fixed;inset:0}
 [hidden]{display:none!important}
 .loading-screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;background:#111110;opacity:1;transition:opacity .65s cubic-bezier(.22,.61,.36,1);touch-action:none}
 .loading-screen.is-leaving{opacity:0;pointer-events:none}
+.loading-screen.is-leaving .loading-eye-blink,.loading-screen.is-leaving .loading-eye-gaze{animation-play-state:paused}
 .loading-eye{width:76px;height:76px}
 .loading-eye-blink{position:relative;width:100%;height:100%;overflow:hidden;border:3px solid #000;border-radius:50%;background:#e8e5dc;box-shadow:0 0 0 1px #e8e5dc;transform-origin:center;animation:eye-blink 3.2s linear infinite;will-change:transform}
 .loading-eye-gaze{position:absolute;left:16%;top:16%;width:68%;height:68%;border:3px solid #000;border-radius:50%;animation:eye-look 3.2s cubic-bezier(.4,0,.2,1) infinite;will-change:transform}

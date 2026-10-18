@@ -117,6 +117,8 @@ test.describe('loading and constrained browsers', () => {
     await loader.evaluate(element => {
       for (const animation of element.getAnimations({ subtree: true })) { animation.currentTime = 3100; animation.play(); }
     });
+    await expect(loader).toHaveClass(/is-leaving/);
+    expect(await loader.locator('.loading-eye-gaze').evaluate(element => getComputedStyle(element).animationPlayState)).toBe('paused');
     await expect(loader).toHaveCount(0, { timeout: 5000 });
     await expect(page.locator('#field')).not.toHaveAttribute('aria-busy');
   });
