@@ -3,6 +3,7 @@
   "id": "72c98e62-ba7e-4a79-9e3d-8b9375b24c03",
   "title": "HSgWlQjbwAA9scU",
   "image": "asset:3cd0cf3e686fdb337a52731fd5279cc5a613663e84d709b4fb0995d27b8b7705.webp",
+  "imageGroup": "3cd0cf3e686fdb337a52731fd5279cc5a613663e84d709b4fb0995d27b8b7705",
   "width": 1152,
   "height": 1600,
   "sourceUrl": "https://x.com/pong__o0/status/2100954331306770563?s=20",
@@ -10,6 +11,5 @@
     "x": 0.473559,
     "y": 0.205976,
     "r": 0.022583
-  },
-  "imageGroup": "3cd0cf3e686fdb337a52731fd5279cc5a613663e84d709b4fb0995d27b8b7705"
+  }
 }

@@ -3,6 +3,7 @@
   "id": "c62bb165-2587-4cd1-819a-75cfc42c0be4",
   "title": "HSAr0BYaYAA5J58",
   "image": "asset:dad8d5c10a4f883580304f9832401730c82c55ca798d7ed225e57652347fafc9.webp",
+  "imageGroup": "dad8d5c10a4f883580304f9832401730c82c55ca798d7ed225e57652347fafc9",
   "width": 1103,
   "height": 1600,
   "sourceUrl": "https://x.com/punpunp_/status/2098719372403761264?s=20",
@@ -10,6 +11,5 @@
     "x": 0.469316,
     "y": 0.324432,
     "r": 0.029265
-  },
-  "imageGroup": "dad8d5c10a4f883580304f9832401730c82c55ca798d7ed225e57652347fafc9"
+  }
 }

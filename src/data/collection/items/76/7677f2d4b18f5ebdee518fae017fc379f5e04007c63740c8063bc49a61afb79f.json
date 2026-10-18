@@ -3,6 +3,7 @@
   "id": "41d8594c-aff6-434b-b893-4bd4c4a0cc57",
   "title": "HUdE-7UWgAEoUHp",
   "image": "asset:ff521fac674611607139d9cfaf690d3599b5f9bb97c649a1691193dffb124610.webp",
+  "imageGroup": "ff521fac674611607139d9cfaf690d3599b5f9bb97c649a1691193dffb124610",
   "width": 1200,
   "height": 1600,
   "sourceUrl": "https://x.com/McDonaldsJapan/status/2109924601660621233?s=20",
@@ -10,6 +11,5 @@
     "x": 0.437952,
     "y": 0.180592,
     "r": 0.032506
-  },
-  "imageGroup": "ff521fac674611607139d9cfaf690d3599b5f9bb97c649a1691193dffb124610"
+  }
 }

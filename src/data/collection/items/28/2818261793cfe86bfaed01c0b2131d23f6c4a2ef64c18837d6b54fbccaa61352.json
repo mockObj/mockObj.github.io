@@ -3,6 +3,7 @@
   "id": "487c7e8f-a111-487b-8963-d6f0c7042bd6",
   "title": "HTD3qybaEAA6eAk",
   "image": "asset:5d54b6c4ab01b0ea8a090bc19518ac137eea0782a58accee82bcdc2a39fca98f.webp",
+  "imageGroup": "5d54b6c4ab01b0ea8a090bc19518ac137eea0782a58accee82bcdc2a39fca98f",
   "width": 1600,
   "height": 900,
   "sourceUrl": "https://x.com/pure_zan/status/2103453558142378010?s=20",
@@ -10,6 +11,5 @@
     "x": 0.465385,
     "y": 0.555384,
     "r": 0.100063
-  },
-  "imageGroup": "5d54b6c4ab01b0ea8a090bc19518ac137eea0782a58accee82bcdc2a39fca98f"
+  }
 }

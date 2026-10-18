@@ -1,0 +1,15 @@
+{
+  "order": 30,
+  "id": "056bce97-b272-424f-861d-a8876edccff0",
+  "title": "image",
+  "image": "asset:b86ad7101ef205378359c001f3bf30b1d9b38c6feee4617c2894ab68bcc09a2f.webp",
+  "imageGroup": "b86ad7101ef205378359c001f3bf30b1d9b38c6feee4617c2894ab68bcc09a2f",
+  "width": 1200,
+  "height": 1600,
+  "sourceUrl": "https://x.com/Daikei_625/status/1734201948268867639?s=20",
+  "eye": {
+    "x": 0.412568,
+    "y": 0.366737,
+    "r": 0.053478
+  }
+}

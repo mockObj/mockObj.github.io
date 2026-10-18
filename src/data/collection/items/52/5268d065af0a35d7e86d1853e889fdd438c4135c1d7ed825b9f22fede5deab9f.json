@@ -3,6 +3,7 @@
   "id": "84056856-4e91-4d7f-91f1-4384715dc4bc",
   "title": "ワンダー",
   "image": "asset:bf0db10f72d08d13785002872e15bd5a171cfece8dc189c8c459d69cf499de15.webp",
+  "imageGroup": "bf0db10f72d08d13785002872e15bd5a171cfece8dc189c8c459d69cf499de15",
   "width": 900,
   "height": 1600,
   "sourceUrl": "https://x.com/4tkvh/status/2111648685998358908?s=20",
@@ -10,6 +11,5 @@
     "x": 0.437952,
     "y": 0.277565,
     "r": 0.030318
-  },
-  "imageGroup": "bf0db10f72d08d13785002872e15bd5a171cfece8dc189c8c459d69cf499de15"
+  }
 }

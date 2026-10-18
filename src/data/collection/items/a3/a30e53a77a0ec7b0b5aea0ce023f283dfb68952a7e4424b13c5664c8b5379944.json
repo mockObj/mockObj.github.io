@@ -3,6 +3,7 @@
   "id": "6f4ecb30-7500-4d02-93db-7eb3e19094c2",
   "title": "HSgNR5tbwAAVESH",
   "image": "asset:0dfb9655d53048a9646688ecbb5dc708d61d58021803257048513e7704dc1da6.webp",
+  "imageGroup": "0dfb9655d53048a9646688ecbb5dc708d61d58021803257048513e7704dc1da6",
   "width": 1147,
   "height": 1600,
   "sourceUrl": "https://x.com/youmu080/status/2100943947900354959?s=20",
@@ -10,6 +11,5 @@
     "x": 0.399676,
     "y": 0.197515,
     "r": 0.032099
-  },
-  "imageGroup": "0dfb9655d53048a9646688ecbb5dc708d61d58021803257048513e7704dc1da6"
+  }
 }

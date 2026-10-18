@@ -3,6 +3,7 @@
   "id": "f6246d58-aafe-4758-8f6f-90e66482df54",
   "title": "DEMONDICE",
   "image": "asset:662be7c590c2bb1d8cf818f1617b9a854dbba3a31f64fa7e73c291faf00d0102.webp",
+  "imageGroup": "662be7c590c2bb1d8cf818f1617b9a854dbba3a31f64fa7e73c291faf00d0102",
   "width": 1600,
   "height": 1000,
   "sourceUrl": "https://youtu.be/OWDcn7hl16A",
@@ -10,6 +11,5 @@
     "x": 0.661826,
     "y": 0.590951,
     "r": 0.133641
-  },
-  "imageGroup": "662be7c590c2bb1d8cf818f1617b9a854dbba3a31f64fa7e73c291faf00d0102"
+  }
 }

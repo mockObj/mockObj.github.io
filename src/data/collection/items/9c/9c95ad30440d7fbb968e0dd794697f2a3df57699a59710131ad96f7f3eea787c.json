@@ -3,6 +3,7 @@
   "id": "4b232d10-b69e-43c0-9121-95c87040ec51",
   "title": "HTcUowTaEAARwnm",
   "image": "asset:246972c32c31536e32b55f52a73f088ef59fd114ab4daee5bf7503445235f665.webp",
+  "imageGroup": "246972c32c31536e32b55f52a73f088ef59fd114ab4daee5bf7503445235f665",
   "width": 1315,
   "height": 1314,
   "sourceUrl": "https://x.com/xhguwj/status/2105174045675454961?s=20",
@@ -10,6 +11,5 @@
     "x": 0.464068,
     "y": 0.470386,
     "r": 0.041249
-  },
-  "imageGroup": "246972c32c31536e32b55f52a73f088ef59fd114ab4daee5bf7503445235f665"
+  }
 }

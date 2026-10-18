@@ -3,6 +3,7 @@
   "id": "27c94bc6-e02f-450a-a558-053bf6d09af7",
   "title": "2096538910595899539",
   "image": "asset:97b3fe496e8c39d68996e016a84eaccf79384d7247235228c3215b4fe4bd99a6.webp",
+  "imageGroup": "97b3fe496e8c39d68996e016a84eaccf79384d7247235228c3215b4fe4bd99a6",
   "width": 1200,
   "height": 721,
   "sourceUrl": "https://x.com/LAN___LAN___/status/2096538910595899539?s=20",
@@ -10,6 +11,5 @@
     "x": 0.394424,
     "y": 0.35309,
     "r": 0.067696
-  },
-  "imageGroup": "97b3fe496e8c39d68996e016a84eaccf79384d7247235228c3215b4fe4bd99a6"
+  }
 }

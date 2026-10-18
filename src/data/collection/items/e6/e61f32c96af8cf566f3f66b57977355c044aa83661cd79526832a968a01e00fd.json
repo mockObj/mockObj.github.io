@@ -3,6 +3,7 @@
   "id": "446f430b-0967-49ed-9bd4-12cf1c056ec3",
   "title": "HU1mES0bgAEYwSq",
   "image": "asset:3fcc30ac6b3779160106f356d25b7db0e22078b5468485be1519f3066143385f.webp",
+  "imageGroup": "3fcc30ac6b3779160106f356d25b7db0e22078b5468485be1519f3066143385f",
   "width": 1079,
   "height": 1569,
   "sourceUrl": "https://x.com/Garuku/status/2111476774995714053?s=20",
@@ -10,6 +11,5 @@
     "x": 0.266233,
     "y": 0.470386,
     "r": 0.055325
-  },
-  "imageGroup": "3fcc30ac6b3779160106f356d25b7db0e22078b5468485be1519f3066143385f"
+  }
 }
