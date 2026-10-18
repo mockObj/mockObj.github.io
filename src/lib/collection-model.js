@@ -40,6 +40,7 @@ export function validateCollection(raw) {
       id: entry.id,
       title: typeof entry.title === 'string' ? entry.title.slice(0, 200) : '',
       image: safeUrl(entry.image) || entry.image,
+      ...(typeof entry.imageGroup === 'string' && /^[a-f0-9]{64}$/.test(entry.imageGroup) ? { imageGroup: entry.imageGroup } : {}),
       width: entry.width,
       height: entry.height,
       sourceUrl: safeUrl(entry.sourceUrl),

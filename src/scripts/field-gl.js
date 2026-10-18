@@ -10,7 +10,7 @@ export class EyeFieldGL {
     this._disposed = false; this._lost = false;
     this._textures = new Map();
     this._buffer = null; this._background = null; this._art = null;
-    const options = { alpha: false, antialias: true, premultipliedAlpha: false, preserveDrawingBuffer: false, depth: false, stencil: false };
+    const options = { alpha: true, antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: false, depth: false, stencil: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true };
     this.gl = canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options);
     if (!this.gl) throw new Error('WebGL is unavailable.');
     this._buildResources();
@@ -73,41 +73,6 @@ precision highp float;
 precision mediump float;
 #endif
 `;
-    const grain = `
-float paperHash(vec2 p) {
-  vec3 q = fract(vec3(p.xyx) * .1031);
-  q += dot(q, q.yzx + 33.33);
-  return fract((q.x + q.y) * q.z);
-}
-float paperNoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(paperHash(i), paperHash(i + vec2(1.0,0.0)), f.x),
-             mix(paperHash(i + vec2(0.0,1.0)), paperHash(i + vec2(1.0)), f.x), f.y);
-}
-`;
-    const backgroundVertex = `
-attribute vec2 aPosition;
-varying mediump vec2 vUv;
-void main() { vUv = (aPosition + 1.0) * .5; gl_Position = vec4(aPosition.x, -aPosition.y, 0.0, 1.0); }
-`;
-    const backgroundFragment = precision + `
-varying mediump vec2 vUv;
-uniform vec2 uViewport, uPan;
-uniform float uTime, uMotion;
-` + grain + `
-void main() {
-  vec2 world = vUv * uViewport - uPan;
-  float broad = paperNoise(world * .007);
-  float middle = paperNoise(world * .085);
-  float fine = paperHash(floor(world * 1.13));
-  vec2 drift = vec2(sin(uTime * .035), cos(uTime * .028)) * .008 * uMotion;
-  vec2 vignette = (vUv - .5 - drift) * vec2(min(uViewport.x / uViewport.y, 1.7), 1.0);
-  float gray = .057 + (broad - .5) * .010 + (middle - .5) * .003 + (fine - .5) * .003;
-  gray -= smoothstep(.18, .85, length(vignette)) * .007;
-  gl_FragColor = vec4(vec3(clamp(gray, .045, .07)), 1.0);
-}
-`;
     const artVertex = `
 attribute vec2 aPosition;
 uniform vec2 uViewport, uCenter;
@@ -142,7 +107,6 @@ void main() {
 }
 `;
     try {
-      this._background = this._program(backgroundVertex, backgroundFragment, ['uViewport', 'uPan', 'uTime', 'uMotion']);
       this._art = this._program(artVertex, artFragment, ['uViewport', 'uCenter', 'uSide', 'uDepth', 'uFocal', 'uTexture', 'uCrop', 'uImageShift', 'uSymbol']);
       this._buffer = gl.createBuffer();
       if (!this._buffer) throw new Error('Unable to allocate WebGL resources.');
@@ -182,7 +146,6 @@ void main() {
     if (!(width > 0 && height > 0) || width > this._maxTexture || height > this._maxTexture) return false;
     let texture = null;
     try {
-      for (let count = 0; count < 4 && gl.getError() !== gl.NO_ERROR; count++) {}
       texture = gl.createTexture();
       if (!texture) return false;
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -214,17 +177,11 @@ void main() {
   render(tiles, scene = {}) {
     if (!this.valid || this._disposed || this.gl.isContextLost()) return false;
     const gl = this.gl, width = Math.max(1, Number(scene.width) || this.width), height = Math.max(1, Number(scene.height) || this.height);
-    const panX = Number(scene.panX) || 0, panY = Number(scene.panY) || 0;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
-    gl.clearColor(.052, .052, .052, 1); gl.clear(gl.COLOR_BUFFER_BIT);
-    this._use(this._background);
-    let u = this._background.uniforms;
-    gl.uniform2f(u.uViewport, width, height); gl.uniform2f(u.uPan, panX, panY);
-    gl.uniform1f(u.uTime, (Number(scene.time) || 0) * .001); gl.uniform1f(u.uMotion, scene.reduceMotion ? 0 : 1);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    this._use(this._art); u = this._art.uniforms;
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    this._use(this._art); const u = this._art.uniforms;
     gl.uniform2f(u.uViewport, width, height); gl.uniform1f(u.uFocal, Math.max(width, height) * 1.7);
     gl.activeTexture(gl.TEXTURE0); gl.uniform1i(u.uTexture, 0);
     const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;

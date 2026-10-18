@@ -26,9 +26,14 @@ const sceneCanvas = document.getElementById('scene');
 const gestureHint = document.getElementById('gesture-hint');
 const sourceHint = document.getElementById('source-hint');
 const viewerStatus = document.getElementById('viewer-status');
+const loadingScreen = document.getElementById('loading-screen');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const embeddedViewer = Boolean(document.getElementById('me-collection'));
 const textureRecords = new Map();
+const artworkQueue = [];
+let artworkJobs = 0;
+let loadingReady = false;
+let textureSide = 256;
 let activeCollection = emptyCollection();
 let collectionReady = false;
 const fieldSeed = Math.random() * 0x100000000 >>> 0;
@@ -61,6 +66,27 @@ function requestFrame() {
 
 try { fieldRenderer = new EyeFieldGL(sceneCanvas, requestFrame); }
 catch { sceneCanvas.hidden = true; }
+
+function dismissLoading() {
+  field.removeAttribute('aria-busy');
+  if (!loadingScreen || loadingScreen.classList.contains('is-leaving')) return;
+  loadingScreen.classList.add('is-leaving');
+  const remove = () => loadingScreen.remove();
+  loadingScreen.addEventListener('transitionend', remove, { once: true });
+  setTimeout(remove, 750);
+}
+
+function readyToReveal() {
+  if (loadingReady) return;
+  loadingReady = true;
+  if (!loadingScreen || reduceMotion.matches) { dismissLoading(); return; }
+  loadingScreen.dataset.ready = 'true';
+  // Finish both blinks before fading, even when the images finish mid-glance.
+  loadingScreen.addEventListener('animationiteration', event => {
+    if (event.animationName === 'eye-look') dismissLoading();
+  }, { once: false });
+  setTimeout(dismissLoading, 3300);
+}
 
 function hideGestureHint() {
   clearTimeout(hintTimer);
@@ -96,7 +122,7 @@ function resizeField() {
     camera.x *= cellSize / previousSize;
     camera.y *= cellSize / previousSize;
     if (dragState) {
-      const last = dragState.samples.at(-1);
+      const last = dragState.samples[dragState.samples.length - 1];
       dragState.cameraX = camera.x - (last.x - dragState.originX);
       dragState.cameraY = camera.y - (last.y - dragState.originY);
     }
@@ -143,7 +169,9 @@ function resizeField() {
     node.tile.style.height = `${cellSize}px`;
     if (cellSize !== previousSize) node.identity = '';
   }
-  fieldRenderer?.resize(fieldWidth, fieldHeight, Math.min(window.devicePixelRatio || 1, 1.75));
+  const dpr = Math.min(window.devicePixelRatio || 1, window.matchMedia('(pointer: coarse)').matches ? 1.25 : 1.5, Math.sqrt(1200000 / (fieldWidth * fieldHeight)));
+  textureSide = Math.min(512, Math.max(128, 2 ** Math.ceil(Math.log2(cellSize * FIELD_ART_FRACTION * dpr * PHOTO_TEXTURE_SCALE))));
+  fieldRenderer?.resize(fieldWidth, fieldHeight, dpr);
   requestFrame();
 }
 
@@ -166,7 +194,7 @@ function photoGeometry(art, side, cropScale = 1) {
 // Source pixels only translate and uniformly scale; they never deform.
 function textureImage(image, art) {
   if (art.symbol) return image;
-  const side = Math.min(1024, Math.max(192, Math.ceil(cropSide(art) * PHOTO_TEXTURE_SCALE)));
+  const side = textureSide;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = side;
   const context = canvas.getContext('2d');
@@ -177,24 +205,44 @@ function textureImage(image, art) {
 }
 
 function ensureTexture(key, art) {
-  if (!fieldRenderer) return;
-  const signature = `${art.width}:${art.height}:${art.eye.x}:${art.eye.y}:${art.eye.r}:${Boolean(art.symbol)}`;
   const previous = textureRecords.get(key);
-  if (previous?.source === art.image && previous.signature === signature) return;
-  fieldRenderer.removeTexture(key);
-  const record = { source: art.image, signature };
+  if (previous?.art === art && previous.side === textureSide) return previous;
+  const signature = `${art.width}:${art.height}:${art.eye.x}:${art.eye.y}:${art.eye.r}:${Boolean(art.symbol)}:${textureSide}`;
+  if (previous?.source === art.image && previous.signature === signature) { previous.art = art; return previous; }
+  const record = { source: art.image, art, side: textureSide, signature, phase: 'queued', dom: !fieldRenderer?.valid };
   textureRecords.set(key, record);
-  const image = new Image();
-  image.decoding = 'async';
-  if (/^https?:/i.test(art.image)) image.crossOrigin = 'anonymous';
-  image.onload = () => {
-    if (textureRecords.get(key) !== record) return;
-    try { fieldRenderer.setTexture(key, textureImage(image, art)); }
-    catch { /* The unmodified DOM image remains available when CORS blocks GL. */ }
-    requestFrame();
-  };
-  image.onerror = requestFrame;
-  image.src = art.image;
+  artworkQueue.push({ key, art, record });
+  pumpArtwork();
+  return record;
+}
+
+function pumpArtwork() {
+  // Yield between decodes/uploads so the CSS loader and touch input keep running.
+  while (artworkJobs < 2 && artworkQueue.length) {
+    const { key, art, record } = artworkQueue.shift();
+    if (textureRecords.get(key) !== record) continue;
+    artworkJobs++;
+    record.phase = 'loading';
+    const image = new Image();
+    image.decoding = 'async';
+    if (/^https?:/i.test(art.image)) image.crossOrigin = 'anonymous';
+    const complete = () => {
+      image.onload = image.onerror = null;
+      artworkJobs--;
+      requestFrame();
+      setTimeout(pumpArtwork, 0);
+    };
+    image.onload = () => setTimeout(() => {
+      if (textureRecords.get(key) === record) {
+        try { record.dom = !fieldRenderer?.valid || !fieldRenderer.setTexture(key, textureImage(image, art)); }
+        catch { record.dom = true; }
+        record.phase = 'ready';
+      }
+      complete();
+    }, 0);
+    image.onerror = () => { record.phase = 'error'; record.dom = true; complete(); };
+    image.src = art.image;
+  }
 }
 
 function bindTile(node, column, row) {
@@ -208,6 +256,8 @@ function bindTile(node, column, row) {
   node.appearance = appearance;
   node.textureKey = art ? `${item ? 'item' : 'preset'}:${art.id}` : '';
   node.tile.className = 'eye-tile';
+  node.gpu = undefined;
+  node.imagePosition = '';
   node.tile.dataset.kind = item ? 'item' : art ? 'preset' : 'empty';
   node.tile.dataset.column = String(column);
   node.tile.dataset.row = String(row);
@@ -264,9 +314,8 @@ function bindTile(node, column, row) {
       requestFrame();
     };
     node.surface.replaceChildren(image);
-    image.src = art.image;
+    // The shared artwork job handles decoding. Only the DOM fallback needs src.
   }
-  ensureTexture(node.textureKey, art);
 }
 
 function drawFrame(time) {
@@ -289,9 +338,13 @@ function drawFrame(time) {
   }
   const firstColumn = Math.floor(-camera.x / cellSize) - poolMargin;
   const firstRow = Math.floor(-camera.y / cellSize) - poolMargin;
+  // One compositor transform pans all hit targets. Keep local coordinates near
+  // the viewport so an unbounded world never creates an enormous DOM layer.
+  tileLayer.style.transform = `translate3d(${(camera.x + firstColumn * cellSize).toFixed(3)}px,${(camera.y + firstRow * cellSize).toFixed(3)}px,0)`;
   const renderTiles = [];
   const gpuAvailable = Boolean(fieldRenderer?.valid);
   sceneCanvas.hidden = !gpuAvailable;
+  const neededArtwork = [];
 
   for (let row = 0; row < poolRows; row++) {
     for (let column = 0; column < poolColumns; column++) {
@@ -342,19 +395,30 @@ function drawFrame(time) {
       const centerY = screenY + cellSize / 2;
       const boundsRadius = cellSize * .5 + Math.abs(depth) + 8;
       const visible = centerX + boundsRadius > 0 && centerY + boundsRadius > 0 && centerX - boundsRadius < fieldWidth && centerY - boundsRadius < fieldHeight;
-      node.tile.style.transform = `translate3d(${screenX.toFixed(3)}px,${screenY.toFixed(3)}px,0)`;
-      node.tile.style.setProperty('--plane-transform', `translateZ(${depth.toFixed(2)}px)`);
-      if (node.content && node.geometry) {
-        node.content.style.transform = `translate3d(${(node.geometry.x + node.dx).toFixed(3)}px,${(node.geometry.y + node.dy).toFixed(3)}px,0)`;
-      }
-      node.tile.style.visibility = visible || node.tile === document.activeElement ? 'visible' : 'hidden';
+      const position = `translate3d(${column * cellSize}px,${row * cellSize}px,0)`;
+      if (node.position !== position) { node.position = position; node.tile.style.transform = position; }
+      const plane = `translateZ(${depth.toFixed(2)}px)`;
+      if (node.plane !== plane) { node.plane = plane; node.tile.style.setProperty('--plane-transform', plane); }
+      const visibility = visible || node.tile === document.activeElement ? 'visible' : 'hidden';
+      if (node.visibility !== visibility) { node.visibility = visibility; node.tile.style.visibility = visibility; }
       node.tile._screenX = screenX;
       node.tile._screenY = screenY;
       node.tile._screenRadius = boundsRadius;
+      node.tile._imageX = node.dx;
+      node.tile._imageY = node.dy;
+      const record = visible && node.art ? ensureTexture(node.textureKey, node.art) : null;
+      if (record) neededArtwork.push(record);
       const textureReady = gpuAvailable && fieldRenderer.hasTexture(node.textureKey);
-      node.tile.classList.toggle('is-gpu', textureReady);
+      if (node.gpu !== textureReady) { node.gpu = textureReady; node.tile.classList.toggle('is-gpu', textureReady); }
+      if (textureReady && node.content?.tagName === 'IMG' && node.content.hasAttribute('src')) node.content.removeAttribute('src');
+      if (visible && node.content?.tagName === 'IMG' && record && ['ready', 'error'].includes(record.phase) && (!gpuAvailable || record.dom) && node.content.getAttribute('src') !== node.art.image) node.content.src = node.art.image;
+      if (!textureReady && node.content && node.geometry && visible) {
+        const imagePosition = `translate3d(${(node.geometry.x + node.dx).toFixed(3)}px,${(node.geometry.y + node.dy).toFixed(3)}px,0)`;
+        if (node.imagePosition !== imagePosition) { node.imagePosition = imagePosition; node.content.style.transform = imagePosition; }
+      }
       // DOM fallback artwork is above the canvas, so its links must be too.
-      node.tile.style.zIndex = String((textureReady ? 0 : pool.length) + row * poolColumns + column);
+      const order = String((textureReady ? 0 : pool.length) + row * poolColumns + column);
+      if (node.order !== order) { node.order = order; node.tile.style.zIndex = order; }
       if (textureReady && visible) {
         renderTiles.push({
           x, y, size: cellSize, textureKey: node.textureKey,
@@ -371,6 +435,7 @@ function drawFrame(time) {
     panX: camera.x, panY: camera.y,
     time, reduceMotion: reduceMotion.matches,
   });
+  if (collectionReady && neededArtwork.length && neededArtwork.every(record => ['ready', 'error'].includes(record.phase))) readyToReveal();
   if (moving) requestFrame();
   else lastFrame = 0;
 }
@@ -455,8 +520,9 @@ function releasePointer(event, cancelled = false) {
   dragState = null;
   if (field.hasPointerCapture(event.pointerId)) field.releasePointerCapture(event.pointerId);
   field.classList.remove('is-dragging');
-  const last = ended.samples.at(-1);
-  const first = ended.samples.findLast(sample => sample.time <= event.timeStamp - PAN_SAMPLE_MS) || ended.samples[0];
+  const last = ended.samples[ended.samples.length - 1];
+  let first = ended.samples[0];
+  for (const sample of ended.samples) if (sample.time <= event.timeStamp - PAN_SAMPLE_MS) first = sample;
   const elapsed = event.timeStamp - first.time;
   if (!cancelled && ended.moved && elapsed >= 8 && event.timeStamp - last.time < PAN_SAMPLE_MS) {
     camera.vx = clampValue((last.x - first.x) / elapsed, -3.8, 3.8);
@@ -515,7 +581,7 @@ async function refreshCollection() {
     viewerStatus.textContent = '';
     requestFrame();
   } catch (error) {
-    if (sequence === reloadSequence) viewerStatus.textContent = error.message || '画像データを読み込めませんでした。';
+    if (sequence === reloadSequence) { viewerStatus.textContent = error.message || '画像データを読み込めませんでした。'; dismissLoading(); }
   }
 }
 

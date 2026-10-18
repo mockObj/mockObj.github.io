@@ -6,8 +6,9 @@ async function cameraPosition(page: Page) {
   return page.locator('.eye-tile').first().evaluate(tile => {
     const element = tile as HTMLElement;
     const matrix = new DOMMatrixReadOnly(element.style.transform);
+    const layer = new DOMMatrixReadOnly(document.getElementById('tiles')!.style.transform);
     const size = parseFloat(element.style.width);
-    return { x: matrix.m41 - Number(element.dataset.column) * size, y: matrix.m42 - Number(element.dataset.row) * size };
+    return { x: matrix.m41 + layer.m41 - Number(element.dataset.column) * size, y: matrix.m42 + layer.m42 - Number(element.dataset.row) * size };
   });
 }
 
@@ -21,11 +22,12 @@ async function openEyes(page: Page) {
     context.fillStyle = 'black'; context.beginPath(); context.arc(48, 48, 14, 0, Math.PI * 2); context.fill();
     return canvas.toDataURL('image/png');
   });
-  await page.route('**/content/me/collection.json', route => route.fulfill({ json: { version: 2, items: [
+  await page.route('**/content/me/viewer.json', route => route.fulfill({ json: { version: 2, items: [
     { id: 'eye', title: 'Touch test eye', image, width: 96, height: 96, sourceUrl: 'https://example.com/eye', eye: { x: .5, y: .5, r: .26 } },
   ] } }));
   await page.goto('/content/me/', { waitUntil: 'networkidle' });
   await expect(page.locator('.eye-tile[data-kind="item"]').first()).toBeAttached();
+  await expect(page.locator('#loading-screen')).toHaveCount(0, { timeout: 10000 });
   const session = await page.context().newCDPSession(page);
   return async (type: 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel', y = 0, x = 195) => {
     await session.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ id: 1, x, y }] });
@@ -36,8 +38,8 @@ test('touch scroll aims at screen center, keeps moving with inertia, and stops o
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   const touch = await openEyes(page);
-  const trackedEye = page.locator('.eye-tile[data-column="2"][data-row="6"] .eye-surface > *');
-  const gazeY = () => trackedEye.evaluate(eye => new DOMMatrixReadOnly((eye as HTMLElement).style.transform).m42);
+  const trackedEye = page.locator('.eye-tile[data-column="2"][data-row="6"]');
+  const gazeY = () => trackedEye.evaluate(eye => (eye as HTMLElement & { _imageY: number })._imageY);
   const start = await cameraPosition(page);
   await touch('touchStart', 580);
   // The selected eye starts below screen center, so its image must look upward.

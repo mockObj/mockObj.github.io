@@ -60,9 +60,16 @@ export async function loadCollection() {
 }
 
 async function loadPublishedCollection() {
-  const response = await fetch(new URL('collection.json', ROOT_URL), { cache: 'no-cache' });
+  const endpoint = ME_PORTABLE_MODE === 'public' ? 'viewer.json' : 'collection.json';
+  const response = await fetch(new URL(endpoint, ROOT_URL), { cache: 'no-cache' });
   if (!response.ok) throw new Error('画像データを読み込めませんでした。');
-  return validateCollection(await response.json());
+  const raw = await response.json();
+  // Generated image paths stay on this origin during local previews too.
+  if (endpoint === 'viewer.json') for (const item of raw.items || []) {
+    const image = safeUrl(item.image);
+    if (image && new URL(image).origin === 'https://mockobj.github.io' && new URL(image).pathname.startsWith('/content/me/images/')) item.image = new URL(new URL(image).pathname, ROOT_URL).href;
+  }
+  return validateCollection(raw);
 }
 
 export async function saveCollection(collection) {

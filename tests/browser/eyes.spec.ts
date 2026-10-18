@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 // Editor scenarios start from an empty published collection, independent of
 // the owner's images currently committed to the site.
 test.beforeEach(async ({ context }) => {
-  await context.route('**/content/me/collection.json', route => route.fulfill({ json: { version: 2, items: [] } }));
+  await context.route('**/content/me/{collection,viewer}.json', route => route.fulfill({ json: { version: 2, items: [] } }));
 });
 
 test('public viewer renders locally hosted images on desktop and mobile', async ({ page }, testInfo) => {
@@ -18,6 +18,7 @@ test('public viewer renders locally hosted images on desktop and mobile', async 
   await expect(page.locator('#tiles > *').first()).toBeAttached();
   await expect(page.locator('#viewer-status')).toBeEmpty();
   await expect(page.locator('#tiles [data-kind="preset"]').first()).toBeAttached();
+  await expect(page.locator('#loading-screen')).toHaveCount(0, { timeout: 10000 });
   await page.locator('#field').focus();
   await page.keyboard.press('ArrowRight');
   await page.mouse.wheel(120, 80);
@@ -98,6 +99,7 @@ test('image edits persist, preview uses the draft, public data stays separate, J
   expect(requests).toEqual([]);
 
   const fresh = await context.browser()!.newContext();
+  await fresh.route('**/content/me/{collection,viewer}.json', route => route.fulfill({ json: { version: 2, items: [] } }));
   const freshEditor = await fresh.newPage();
   await freshEditor.goto('http://127.0.0.1:4321/content/me/editor/');
   await expect(freshEditor.locator('#choose-images')).toBeEnabled();
@@ -188,7 +190,7 @@ test('corrupt local data is reported and can be recovered by importing JSON', as
   await page.reload();
   await expect(page.locator('#load-error')).toBeVisible();
   await expect(page.locator('#choose-images')).toBeDisabled();
-  await page.locator('#data-file-input').setInputFiles(resolve('src/data/collection.json'));
+  await page.locator('#data-file-input').setInputFiles({ name: 'collection_mock.json', mimeType: 'application/json', buffer: Buffer.from('{"version":2,"items":[]}') });
   await expect(page.locator('#load-error')).toBeHidden();
   await expect(page.locator('#choose-images')).toBeEnabled();
 });

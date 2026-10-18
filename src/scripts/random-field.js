@@ -2,8 +2,9 @@
 export function createRandomField(items, seed = Math.random() * 0x100000000 >>> 0) {
   const grouped = new Map();
   for (const item of items) {
-    if (!grouped.has(item.image)) grouped.set(item.image, []);
-    grouped.get(item.image).push(item);
+    const identity = item.imageGroup || item.image;
+    if (!grouped.has(identity)) grouped.set(identity, []);
+    grouped.get(identity).push(item);
   }
   const groups = [...grouped.values()];
   const chunkSize = Math.max(12, Math.ceil(Math.sqrt(groups.length * 4)));

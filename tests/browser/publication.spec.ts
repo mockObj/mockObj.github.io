@@ -2,12 +2,19 @@ import { test, expect } from '@playwright/test';
 import { access, readFile } from 'node:fs/promises';
 
 test('the published build serves the viewer without any editor or draft preview', async ({ page, request }) => {
+  const originalRequests: string[] = [];
+  page.on('request', request => { if (new URL(request.url()).pathname.endsWith('/collection.json')) originalRequests.push(request.url()); });
   const response = await page.goto('/content/me/');
   expect(response?.status()).toBe(200);
   await expect(page.locator('#tiles > *').first()).toBeAttached();
   await expect(page.locator('#viewer-status')).toBeEmpty();
   await expect(page.locator('a[href="/content/me/editor/"]')).toHaveCount(0);
-  expect((await request.get('/content/me/collection.json')).status()).toBe(200);
+  expect((await request.head('/content/me/collection.json')).status()).toBe(200);
+  const manifest = await request.get('/content/me/viewer.json');
+  expect(manifest.status()).toBe(200);
+  expect((await manifest.body()).length).toBeLessThan(200000);
+  expect((await manifest.json()).items.every((item: { image: string }) => !item.image.startsWith('data:'))).toBe(true);
+  expect(originalRequests).toEqual([]);
 
   for (const route of ['editor', 'preview']) {
     expect((await request.get(`/content/me/${route}/`)).status()).toBe(404);
@@ -18,7 +25,7 @@ test('the published build serves the viewer without any editor or draft preview'
 
 test('a legacy unplaced image is placed automatically and never shows samples', async ({ page }) => {
   const image = 'data:image/jpeg;base64,' + (await readFile('public/content/me/assets/mouthwashing-official-capsule.jpg')).toString('base64');
-  await page.route('**/content/me/collection.json', route => route.fulfill({ json: {
+  await page.route('**/content/me/viewer.json', route => route.fulfill({ json: {
     version: 1, columns: 8, rows: 8, slots: Array(64).fill(null),
     items: [{ id: 'registered', title: 'Registered', image, width: 616, height: 353, sourceUrl: '', eye: { x: .5, y: .5, r: .2 } }],
   } }));
@@ -43,11 +50,12 @@ test('more than 64 registered images appear across an unbounded field and stay f
     context.fillStyle = '#111'; context.beginPath(); context.arc(48, 32, 5, 0, Math.PI * 2); context.fill();
     return { id: `eye-${index}`, title: `Eye ${index}`, image: canvas.toDataURL('image/png'), width: 96, height: 64, sourceUrl: '', eye: { x: .5, y: .5, r: .2 } };
   }));
-  await page.route('**/content/me/collection.json', route => route.fulfill({ json: { version: 2, items } }));
+  await page.route('**/content/me/viewer.json', route => route.fulfill({ json: { version: 2, items } }));
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/content/me/', { waitUntil: 'networkidle' });
   await expect(page.locator('#tiles [data-kind="item"]').first()).toBeAttached();
+  await expect(page.locator('#loading-screen')).toHaveCount(0, { timeout: 10000 });
   const snapshot = () => page.locator('#tiles .eye-tile').evaluateAll(tiles => Object.fromEntries(tiles.map(tile => {
     const element = tile as HTMLElement;
     return [`${element.dataset.column}:${element.dataset.row}`, element.dataset.imageId];
@@ -75,4 +83,63 @@ test('more than 64 registered images appear across an unbounded field and stay f
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: testInfo.outputPath('random-field-mobile.png') });
   expect(errors).toEqual([]);
+});
+
+test.describe('loading and constrained browsers', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test('loading eyes repeat their glances and two blinks until assets are ready, then fade', async ({ page }) => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/content/me/viewer.json', async route => { await gate; await route.fulfill({ json: { version: 2, items: [] } }); });
+    await page.goto('/content/me/', { waitUntil: 'domcontentloaded' });
+    const loader = page.locator('#loading-screen');
+    await expect(loader).toBeVisible();
+    const pose = (time: number) => loader.evaluate((element, time) => {
+      for (const animation of element.getAnimations({ subtree: true })) { animation.pause(); animation.currentTime = time; }
+      const gaze = new DOMMatrixReadOnly(getComputedStyle(element.querySelector('.loading-eye-gaze')!).transform);
+      const blink = new DOMMatrixReadOnly(getComputedStyle(element.querySelector('.loading-eye-blink')!).transform);
+      return { x: gaze.m41, y: gaze.m42, scale: blink.m22 };
+    }, time);
+    expect(await pose(600)).toMatchObject({ x: -6, y: -5 });
+    expect(await pose(1300)).toMatchObject({ x: 6, y: -5 });
+    expect(await pose(2000)).toMatchObject({ x: -5, y: 5 });
+    expect(await pose(2500)).toMatchObject({ x: 0, y: 0 });
+    expect((await pose(2640)).scale).toBeLessThan(.1);
+    expect((await pose(2800)).scale).toBe(1);
+    expect((await pose(3024)).scale).toBeLessThan(.1);
+    expect((await pose(3160)).scale).toBe(1);
+    expect(await pose(7000)).toMatchObject({ x: -6, y: -5 });
+    await expect(loader).toBeVisible();
+    await expect(loader).not.toHaveAttribute('data-ready');
+    release();
+    await expect(loader).toHaveAttribute('data-ready', 'true', { timeout: 15000 });
+    await loader.evaluate(element => {
+      for (const animation of element.getAnimations({ subtree: true })) { animation.currentTime = 3100; animation.play(); }
+    });
+    await expect(loader).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('#field')).not.toHaveAttribute('aria-busy');
+  });
+
+  test('images still render with WebGL disabled in an embedded browser', async ({ page }) => {
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', { value: function (type: string, ...args: unknown[]) {
+        return type === 'webgl' || type === 'experimental-webgl' ? null : Reflect.apply(original, this, [type, ...args]);
+      } });
+    });
+    const image = 'data:image/jpeg;base64,' + (await readFile('public/content/me/assets/mouthwashing-official-capsule.jpg')).toString('base64');
+    await page.route('**/content/me/viewer.json', route => route.fulfill({ json: { version: 2, items: [
+      { id: 'fallback', title: 'Eye', image, width: 616, height: 353, sourceUrl: '', eye: { x: .5, y: .5, r: .2 } },
+    ] } }));
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto('/content/me/', { waitUntil: 'networkidle' });
+    await expect(page.locator('#loading-screen')).toHaveCount(0, { timeout: 10000 });
+    await expect(page.locator('#scene')).toBeHidden();
+    const images = page.locator('.eye-tile .eye-surface img[src]');
+    expect(await images.count()).toBeGreaterThan(10);
+    expect(await images.first().evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(616);
+    expect(errors).toEqual([]);
+  });
 });
