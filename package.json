@@ -10,7 +10,8 @@
     "check": "astro check",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "playwright test",
-    "data:import": "node scripts/import-collection.mjs"
+    "data:import": "node scripts/import-collection.mjs",
+    "repo:verify": "node scripts/verify-remote.mjs"
   },
   "dependencies": {
     "astro": "7.4.0"

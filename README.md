@@ -72,6 +72,10 @@ GitHub上で `src/data/collection.json` をアップロードして置き換え�
 
 ## GitHub Pagesの初回設定
 
+この作業の公開先は **publicの `mockObj/mockObj.github.io`（リポジトリID: `1424163394`）** です。`sheep_web` は別のリポジトリです。push前に `npm run repo:verify` でoriginのURL、転送の有無、リポジトリID、公開状態を確認できます。現在の作業コピーには、この確認を自動実行するローカルのpre-pushフックも設定しています。別の場所にcloneした場合は、push前に手動で実行してください。
+
+ワークフローのbuild・deployジョブも名前とIDが一致した場合だけ実行します。リポジトリを改名・複製した場合にはジョブを実行しません。
+
 所有者のアカウントで [Settings → Pages](https://github.com/mockObj/mockObj.github.io/settings/pages) を開き、Build and deployment → Sourceで **GitHub Actions** を選びます。
 
 mainへのpush後に `.github/workflows/deploy.yml` がチェック・テスト・ビルド・公開を行います。設定前の実行が失敗した場合は、[Actions](https://github.com/mockObj/mockObj.github.io/actions) で `Deploy Astro to GitHub Pages` を開いて再実行してください。独自ドメインや外部DBの設定は不要です。[Astro公式のGitHub Pages手順](https://docs.astro.build/en/guides/deploy/github/)

@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.repository == 'mockObj/mockObj.github.io' && github.repository_id == '1424163394'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -33,7 +34,7 @@ jobs:
           path: dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.repository == 'mockObj/mockObj.github.io' && github.repository_id == '1424163394'
     needs: build
     runs-on: ubuntu-latest
     permissions:
