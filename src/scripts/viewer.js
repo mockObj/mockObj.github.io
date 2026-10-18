@@ -17,6 +17,8 @@ const FIELD_ATTRACTION = Object.freeze({
   nearResponseMs: 105,
   farResponseMs: 85,
 });
+const PAN_DECAY_MS = 325;
+const PAN_SAMPLE_MS = 100;
 
 const field = document.getElementById('field');
 const tileLayer = document.getElementById('tiles');
@@ -49,7 +51,7 @@ let reloadSequence = 0;
 let viewerChannel;
 let fieldRenderer = null;
 const camera = { x: 0, y: 0, vx: 0, vy: 0, initialized: false };
-const gaze = { x: 0, y: 0, active: false };
+const gaze = { x: 0, y: 0, active: false, centered: false };
 const modulo = (value, period) => ((value % period) + period) % period;
 const clampValue = (value, low, high) => Math.max(low, Math.min(high, value));
 
@@ -76,8 +78,11 @@ function showSource(tile) {
 
 function resizeField() {
   const previousSize = cellSize;
-  fieldWidth = Math.max(1, field.clientWidth);
-  fieldHeight = Math.max(1, field.clientHeight);
+  const width = Math.max(1, field.clientWidth);
+  const height = Math.max(1, field.clientHeight);
+  if (width === fieldWidth && height === fieldHeight) return;
+  fieldWidth = width;
+  fieldHeight = height;
   const visibleColumns = fieldWidth < 600 ? 4.2 : fieldWidth < 1000 ? 6.4 : 9.4;
   const referenceCellSize = Math.round(clampValue(fieldWidth / visibleColumns, 80, 180));
   // Keep image size and grid pitch at the original scale.
@@ -90,6 +95,11 @@ function resizeField() {
   if (camera.initialized) {
     camera.x *= cellSize / previousSize;
     camera.y *= cellSize / previousSize;
+    if (dragState) {
+      const last = dragState.samples.at(-1);
+      dragState.cameraX = camera.x - (last.x - dragState.originX);
+      dragState.cameraY = camera.y - (last.y - dragState.originY);
+    }
   } else {
     camera.x = -cellSize * .29;
     camera.y = -cellSize * .34;
@@ -131,7 +141,7 @@ function resizeField() {
   for (const node of pool) {
     node.tile.style.width = `${cellSize}px`;
     node.tile.style.height = `${cellSize}px`;
-    node.identity = '';
+    if (cellSize !== previousSize) node.identity = '';
   }
   fieldRenderer?.resize(fieldWidth, fieldHeight, Math.min(window.devicePixelRatio || 1, 1.75));
   requestFrame();
@@ -261,13 +271,16 @@ function bindTile(node, column, row) {
 
 function drawFrame(time) {
   frameHandle = 0;
-  const dt = clampValue(lastFrame ? time - lastFrame : 16.67, 1, 32);
+  const dt = clampValue(lastFrame ? time - lastFrame : 16.67, 1, 64);
   lastFrame = time;
   let moving = false;
   if (!dragState) {
-    camera.x += camera.vx * dt;
-    camera.y += camera.vy * dt;
-    const friction = Math.exp(-dt / (reduceMotion.matches ? 55 : 205));
+    const decay = reduceMotion.matches ? 55 : PAN_DECAY_MS;
+    const friction = Math.exp(-dt / decay);
+    // Integrate the decaying velocity, so missed frames cannot add a large step.
+    const travel = decay * (1 - friction);
+    camera.x += camera.vx * travel;
+    camera.y += camera.vy * travel;
     camera.vx *= friction;
     camera.vy *= friction;
     if (Math.abs(camera.vx) < .002) camera.vx = 0;
@@ -293,11 +306,11 @@ function drawFrame(time) {
       let targetY = 0;
       let distanceWeight = 0;
       let shiftLimit = maximumShift;
-      if (gaze.active && !reduceMotion.matches) {
+      if (gaze.active) {
         // Use the unchanged grid center, never the moving image or hover target.
         // The frame and its hit area stay aligned with the grid.
-        const dx = gaze.x - (x + cellSize / 2);
-        const dy = gaze.y - (y + cellSize / 2);
+        const dx = (gaze.centered ? fieldWidth / 2 : gaze.x) - (x + cellSize / 2);
+        const dy = (gaze.centered ? fieldHeight / 2 : gaze.y) - (y + cellSize / 2);
         const distance = Math.hypot(dx, dy);
         // Increase attraction smoothly with distance, without exceeding the clip.
         distanceWeight = 1 - Math.exp(-.5 * (distance / influenceRadius) ** 2);
@@ -373,10 +386,10 @@ field.addEventListener('wheel', event => {
     camera.x -= dx; camera.y -= dy;
     camera.vx = camera.vy = 0;
   } else {
-    camera.vx = clampValue(camera.vx - dx / 205, -3.8, 3.8);
-    camera.vy = clampValue(camera.vy - dy / 205, -3.8, 3.8);
+    camera.vx = clampValue(camera.vx - dx / PAN_DECAY_MS, -3.8, 3.8);
+    camera.vy = clampValue(camera.vy - dy / PAN_DECAY_MS, -3.8, 3.8);
   }
-  gaze.x = event.clientX; gaze.y = event.clientY; gaze.active = true;
+  updateGaze(event);
   sourceHint.classList.remove('is-visible');
   hideGestureHint();
   requestFrame();
@@ -384,43 +397,57 @@ field.addEventListener('wheel', event => {
 
 field.addEventListener('pointerdown', event => {
   if (event.button !== 0 || dragState || !event.isPrimary) return;
+  // The field owns this gesture; native link focus/scroll must not move it too.
+  event.preventDefault();
   const tile = event.target.closest('.eye-tile');
   camera.vx = camera.vy = 0;
   dragState = {
     id: event.pointerId,
-    x: event.clientX, y: event.clientY,
     originX: event.clientX, originY: event.clientY,
-    time: performance.now(), moved: false,
+    cameraX: camera.x, cameraY: camera.y,
+    samples: [{ x: event.clientX, y: event.clientY, time: event.timeStamp }],
+    moved: false,
     source: tile?.dataset.source || '',
   };
-  gaze.x = event.clientX; gaze.y = event.clientY; gaze.active = true;
+  updateGaze(event);
   field.setPointerCapture(event.pointerId);
   requestFrame();
 });
 
+function updateGaze(event) {
+  // Touch scrolls the eyes past a fixed point on screen, instead of moving
+  // that point with the same finger and leaving their relative gaze unchanged.
+  gaze.centered = event.pointerType === 'touch';
+  gaze.x = event.clientX;
+  gaze.y = event.clientY;
+  gaze.active = true;
+}
+
 window.addEventListener('pointermove', event => {
   if (!event.isPrimary) return;
   if (event.pointerType === 'mouse' || dragState?.id === event.pointerId) {
-    gaze.x = event.clientX; gaze.y = event.clientY; gaze.active = true;
+    updateGaze(event);
   }
   if (dragState?.id === event.pointerId) {
-    const now = performance.now();
-    const dt = clampValue(now - dragState.time, 4, 80);
-    const dx = event.clientX - dragState.x;
-    const dy = event.clientY - dragState.y;
-    if (Math.hypot(event.clientX - dragState.originX, event.clientY - dragState.originY) > 6) dragState.moved = true;
+    const dx = event.clientX - dragState.originX;
+    const dy = event.clientY - dragState.originY;
+    if (Math.hypot(dx, dy) > 6) dragState.moved = true;
     if (dragState.moved) {
-      camera.x += dx; camera.y += dy;
-      camera.vx = camera.vx * .35 + clampValue(dx / dt, -4, 4) * .65;
-      camera.vy = camera.vy * .35 + clampValue(dy / dt, -4, 4) * .65;
+      camera.x = dragState.cameraX + dx;
+      camera.y = dragState.cameraY + dy;
       field.classList.add('is-dragging');
       sourceHint.classList.remove('is-visible');
       hideGestureHint();
     }
-    dragState.x = event.clientX; dragState.y = event.clientY; dragState.time = now;
+    const samples = dragState.samples;
+    samples.push({ x: event.clientX, y: event.clientY, time: event.timeStamp });
+    while (samples.length > 2 && samples[1].time < event.timeStamp - PAN_SAMPLE_MS) samples.shift();
   }
   requestFrame();
 });
+
+// Safari must not also hand a swipe to the document/viewport scroller.
+field.addEventListener('touchmove', event => { if (event.cancelable) event.preventDefault(); }, { passive: false });
 
 function releasePointer(event, cancelled = false) {
   if (dragState?.id !== event.pointerId) return;
@@ -428,8 +455,15 @@ function releasePointer(event, cancelled = false) {
   dragState = null;
   if (field.hasPointerCapture(event.pointerId)) field.releasePointerCapture(event.pointerId);
   field.classList.remove('is-dragging');
-  if (cancelled || !ended.moved || performance.now() - ended.time > 100 || reduceMotion.matches) camera.vx = camera.vy = 0;
-  if (event.pointerType !== 'mouse') gaze.active = false;
+  const last = ended.samples.at(-1);
+  const first = ended.samples.findLast(sample => sample.time <= event.timeStamp - PAN_SAMPLE_MS) || ended.samples[0];
+  const elapsed = event.timeStamp - first.time;
+  if (!cancelled && ended.moved && elapsed >= 8 && event.timeStamp - last.time < PAN_SAMPLE_MS) {
+    camera.vx = clampValue((last.x - first.x) / elapsed, -3.8, 3.8);
+    camera.vy = clampValue((last.y - first.y) / elapsed, -3.8, 3.8);
+  } else camera.vx = camera.vy = 0;
+  // Keep the central gaze during the coast; releasing a finger must not reset it.
+  if (cancelled) gaze.active = false;
   if (!cancelled && !ended.moved && ended.source) window.open(ended.source, '_blank', 'noopener,noreferrer');
   requestFrame();
 }
@@ -439,7 +473,9 @@ field.addEventListener('lostpointercapture', event => releasePointer(event, true
 // Pointer navigation is handled on release; keyboard activation retains native links.
 field.addEventListener('click', event => { if (event.detail > 0) event.preventDefault(); });
 field.addEventListener('dragstart', event => event.preventDefault());
-document.documentElement.addEventListener('pointerleave', () => { gaze.active = false; requestFrame(); });
+document.documentElement.addEventListener('pointerleave', event => {
+  if (event.pointerType === 'mouse' && !dragState) { gaze.active = false; requestFrame(); }
+});
 window.addEventListener('blur', () => {
   gaze.active = false;
   dragState = null;

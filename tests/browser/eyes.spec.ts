@@ -3,6 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+// Editor scenarios start from an empty published collection, independent of
+// the owner's images currently committed to the site.
+test.beforeEach(async ({ context }) => {
+  await context.route('**/content/me/collection.json', route => route.fulfill({ json: { version: 2, items: [] } }));
+});
+
 test('public viewer renders locally hosted images on desktop and mobile', async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -94,6 +100,7 @@ test('image edits persist, preview uses the draft, public data stays separate, J
   const fresh = await context.browser()!.newContext();
   const freshEditor = await fresh.newPage();
   await freshEditor.goto('http://127.0.0.1:4321/content/me/editor/');
+  await expect(freshEditor.locator('#choose-images')).toBeEnabled();
   await freshEditor.locator('#data-file-input').setInputFiles((await json.path())!);
   await expect(freshEditor.locator('#image-title')).toHaveValue('Browser test eye');
   await expect(freshEditor.locator('.asset-card')).toHaveCount(1);

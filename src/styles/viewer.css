@@ -1,10 +1,10 @@
 :root{color-scheme:dark;--paper:#151515;--ink:#c7c7c7;font-family:Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif}
 *{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111110;overscroll-behavior:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;overflow:clip;background:#111110;overscroll-behavior:none;overflow-anchor:none}
 body{position:fixed;inset:0}
 [hidden]{display:none!important}
 button,a{-webkit-tap-highlight-color:transparent}
-#field{position:absolute;inset:0;overflow:hidden;isolation:isolate;touch-action:none;cursor:grab;outline:none;user-select:none;-webkit-user-select:none;background:radial-gradient(ellipse at 45% 44%,#1b1b19 0,#10100f 75%)}
+#field{position:absolute;inset:0;overflow:hidden;overflow:clip;isolation:isolate;touch-action:none;cursor:grab;outline:none;user-select:none;-webkit-user-select:none;background:radial-gradient(ellipse at 45% 44%,#1b1b19 0,#10100f 75%)}
 #field.is-dragging,#field.is-dragging .eye-tile{cursor:grabbing}
 #scene{display:block;position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none}
 #tiles{position:absolute;inset:0;z-index:2;contain:layout style}
