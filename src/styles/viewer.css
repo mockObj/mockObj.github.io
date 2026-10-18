@@ -3,8 +3,21 @@
 html,body{margin:0;width:100%;height:100%;overflow:hidden;overflow:clip;background:#111110;overscroll-behavior:none;overflow-anchor:none}
 body{position:fixed;inset:0}
 [hidden]{display:none!important}
-.loading-screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#111110;opacity:1;transition:opacity var(--fade-duration,.65s) cubic-bezier(.22,.61,.36,1);touch-action:none}
-.loading-screen.is-leaving{opacity:0;pointer-events:none}
+.loading-screen{--blink-duration:280ms;position:fixed;inset:0;z-index:100;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#111110;touch-action:none}
+.loading-screen.is-leaving{pointer-events:none;animation:loading-blink-surface var(--blink-duration) step-end both}
+.loading-blink{position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none}
+.loading-blink>span{position:absolute;left:0;width:100%;height:60%}
+.loading-blink__upper{top:0;background:linear-gradient(to bottom,#000 83.333333%,transparent);transform:translateY(-100%)}
+.loading-blink__lower{bottom:0;background:linear-gradient(to top,#000 83.333333%,transparent);transform:translateY(100%)}
+.is-leaving .loading-blink__upper{animation:loading-blink-upper var(--blink-duration) both;will-change:transform}
+.is-leaving .loading-blink__lower{animation:loading-blink-lower var(--blink-duration) both;will-change:transform}
+.loading-screen.is-leaving>.loader,.loading-screen.is-leaving>.loading-caption{animation:loading-blink-content var(--blink-duration) step-end both}
+/* Close in 90 ms, swap the scene under full coverage at 100 ms, then open
+   over 170 ms. The feathered edges use gradients instead of costly filters. */
+@keyframes loading-blink-upper{0%{transform:translateY(-100%);animation-timing-function:cubic-bezier(.35,0,.8,.45)}32.142857%,39.285714%{transform:translateY(0);animation-timing-function:cubic-bezier(.12,.6,.35,1)}100%{transform:translateY(-100%)}}
+@keyframes loading-blink-lower{0%{transform:translateY(100%);animation-timing-function:cubic-bezier(.35,0,.8,.45)}32.142857%,39.285714%{transform:translateY(0);animation-timing-function:cubic-bezier(.12,.6,.35,1)}100%{transform:translateY(100%)}}
+@keyframes loading-blink-surface{0%{background-color:#111110}35.714286%,100%{background-color:transparent}}
+@keyframes loading-blink-content{0%{visibility:visible}35.714286%,100%{visibility:hidden}}
 .loader{--duration:4s;display:inline-flex;gap:12px;color:#fff}
 .loader__eye{position:relative;width:26px;height:22px}
 .loader__eye::before{content:"";position:absolute;bottom:0;left:6px;box-sizing:border-box;width:14px;height:22px;border:3px solid currentColor;border-top:0;border-radius:0 0 3px 3px;clip-path:var(--lid-clip,inset(3px 0 0));transition:clip-path var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)}
@@ -47,4 +60,4 @@ button,a{-webkit-tap-highlight-color:transparent}
 .viewer-status:empty{display:none}
 .noscript{position:fixed;inset:40% 10% auto;color:#c5c2b8;text-align:center;font-size:14px}
 @media(max-width:600px){.field-chrome{inset:auto auto max(17px,env(safe-area-inset-bottom)) 18px;max-width:calc(100vw - 100px)}.edit-link{right:18px;bottom:max(15px,env(safe-area-inset-bottom));font-size:10px}.gesture-hint,.source-hint{font-size:9px}.viewer-status{left:18px;top:16px}.film-grain{display:none}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}.loader{--duration:6s}.loader__eye::before{transition:clip-path var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)!important}.loader__eye::after{transition:transform var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)!important}.loading-screen{transition:opacity var(--fade-duration,.3s) ease!important}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}.loader{--duration:6s}.loader__eye::before{transition:clip-path var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)!important}.loader__eye::after{transition:transform var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)!important}.loading-screen{--blink-duration:180ms}}

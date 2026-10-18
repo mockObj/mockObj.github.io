@@ -29,7 +29,7 @@ import '../styles/viewer.css';
     <section id="loading-preview" class="loading-preview" data-size="desktop" aria-label="ローディングのプレビュー" aria-busy="true">
       <div class="test-revealed"><img src="/favicon.svg" alt="" width="56" height="56" /><p>読み込みが終わりました</p><span>「再実行」で繰り返し確認できます</span></div>
     </section>
-    <p class="test-note">75%まで一定速度で閉じ、待機が続くと減速します。長引いた場合は繰り返し、完了すると今の位置から閉じてフェードします。</p>
+    <p class="test-note">75%まで一定速度で閉じ、待機が続くと減速します。最後は上下の黒い幕が約0.28秒で閉じて開き、瞬きのように画面が切り替わります。</p>
     <template id="loading-template"><LoadingEye /></template>
   </main>
 </SiteLayout>
@@ -44,7 +44,7 @@ import '../styles/viewer.css';
   const finish = document.querySelector<HTMLButtonElement>('#finish-loading')!;
   const status = document.querySelector<HTMLElement>('#loading-test-status')!;
   const elapsed = document.querySelector<HTMLOutputElement>('#loading-elapsed')!;
-  const labels: Record<string, string> = { loading: '読み込みを待っています', closing: '読み込み完了・目を閉じています', fading: 'フェード中', done: '表示完了' };
+  const labels: Record<string, string> = { loading: '読み込みを待っています', closing: '読み込み完了・目を閉じています', blinking: '瞬きで切り替えています', done: '表示完了' };
   let controller: ReturnType<typeof createLoadingScreen> | undefined;
   let completion: ReturnType<typeof setTimeout> | undefined;
   let ticker: ReturnType<typeof setInterval> | undefined;
@@ -57,7 +57,7 @@ import '../styles/viewer.css';
     stage.append(template.content.cloneNode(true));
     stage.setAttribute('aria-busy', 'true');
     const screen = stage.querySelector<HTMLElement>('.loading-screen')!;
-    // Establish the initial pose so a 0 ms run can fade on its first frame too.
+    // Establish the initial pose so a 0 ms run can blink on its first frame too.
     getComputedStyle(screen).opacity;
     const started = performance.now();
     const updateElapsed = () => { elapsed.textContent = `${((performance.now() - started) / 1000).toFixed(1)}秒`; };

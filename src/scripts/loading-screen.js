@@ -22,24 +22,24 @@ export function createLoadingScreen(screen, { onDismiss = () => {}, onStateChang
     for (const timer of timers) clearTimeout(timer);
     timers.clear();
     cancelAnimationFrame(frame);
-    screen?.removeEventListener('transitionend', transitionEnded);
+    screen?.removeEventListener('animationend', blinkEnded);
   }
   function remove() {
     screen?.remove();
     state('done');
     dispose();
   }
-  function transitionEnded(event) {
-    if (event.target === screen && event.propertyName === 'opacity') remove();
+  function blinkEnded(event) {
+    if (event.target === screen && event.animationName === 'loading-blink-surface') remove();
   }
   function dismiss() {
-    if (disposed || phase === 'fading') return;
+    if (disposed || phase === 'blinking') return;
     onDismiss();
     if (!screen) { remove(); return; }
-    state('fading');
+    state('blinking');
     screen.classList.add('is-leaving');
-    screen.addEventListener('transitionend', transitionEnded);
-    later(remove, 750);
+    screen.addEventListener('animationend', blinkEnded);
+    later(remove, 450);
   }
   function finish() {
     if (disposed || ready) return;
@@ -50,7 +50,6 @@ export function createLoadingScreen(screen, { onDismiss = () => {}, onStateChang
     if (!eyes) { dismiss(); return; }
     // Cached loads need no ceremonial blink or extra second of waiting.
     if (performance.now() - startedAt < 160) {
-      screen.style.setProperty('--fade-duration', '.22s');
       dismiss();
       return;
     }
