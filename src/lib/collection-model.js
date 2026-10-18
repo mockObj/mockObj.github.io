@@ -14,7 +14,7 @@ export function safeUrl(value) {
 }
 
 export function emptyCollection() {
-  return { version: 1, columns: 8, rows: 8, slots: Array(64).fill(null), items: [] };
+  return { version: 2, items: [] };
 }
 
 function validImage(value) {
@@ -23,9 +23,10 @@ function validImage(value) {
 }
 
 export function validateCollection(raw) {
-  if (!raw || raw.version !== 1 || raw.columns !== 8 || raw.rows !== 8 || !Array.isArray(raw.items) || !Array.isArray(raw.slots) || raw.slots.length !== 64) {
-    throw new Error('対応する目のデータではありません。8 × 8 のデータを指定してください。');
+  if (!raw || ![1, 2].includes(raw.version) || !Array.isArray(raw.items)) {
+    throw new Error('対応する目のデータではありません。書き出したJSONを指定してください。');
   }
+  if (raw.version === 1 && (!Number.isInteger(raw.columns) || !Number.isInteger(raw.rows) || raw.columns < 1 || raw.rows < 1 || !Array.isArray(raw.slots) || raw.slots.length !== raw.columns * raw.rows)) throw new Error('以前の配置データが不正です。');
   if (raw.items.length > MAX_ITEMS) throw new Error(`画像は ${MAX_ITEMS} 枚まで登録できます。`);
   const ids = new Set();
   const items = raw.items.map((entry, index) => {
@@ -49,10 +50,7 @@ export function validateCollection(raw) {
       },
     };
   });
-  const slots = raw.slots.map(id => {
-    if (id === null) return null;
-    if (typeof id !== 'string' || !ids.has(id)) throw new Error('配置データに見つからない画像が含まれています。');
-    return id;
-  });
-  return { version: 1, columns: 8, rows: 8, slots, items };
+  if (raw.version === 1 && raw.slots.some(id => id !== null && (typeof id !== 'string' || !ids.has(id)))) throw new Error('配置データに見つからない画像が含まれています。');
+  // Keep all registered images when migrating the former manual-grid format.
+  return { version: 2, items };
 }

@@ -1,7 +1,8 @@
 import { loadCollection, emptyCollection, safeUrl } from '../lib/collection-store.js';
-import { eyePattern, eyeMarkup, getEyePreset } from './eyes.js';
+import { eyePresets, eyeMarkup } from './eyes.js';
 import { FIELD_GEOMETRY, fieldAppearance } from './field-layout.js';
 import { EyeFieldGL } from './field-gl.js';
+import { createRandomField } from './random-field.js';
 
 const FIELD_ART_FRACTION = FIELD_GEOMETRY.artFraction;
 // Keep surrounding source pixels available while a fixed window clips the image.
@@ -28,7 +29,8 @@ const embeddedViewer = Boolean(document.getElementById('me-collection'));
 const textureRecords = new Map();
 let activeCollection = emptyCollection();
 let collectionReady = false;
-let itemLookup = new Map();
+const fieldSeed = Math.random() * 0x100000000 >>> 0;
+let randomField = createRandomField([], fieldSeed);
 let contentVersion = 0;
 let pool = [];
 let cellSize = 150;
@@ -185,19 +187,21 @@ function ensureTexture(key, art) {
   image.src = art.image;
 }
 
-function bindTile(node, slot) {
-  const identity = `${contentVersion}:${slot}`;
+function bindTile(node, column, row) {
+  const identity = `${contentVersion}:${column}:${row}`;
   if (node.identity === identity) return;
   node.identity = identity;
-  const item = itemLookup.get(activeCollection.slots[slot]);
-  const presetKind = eyePattern[slot];
-  const art = item || (collectionReady && activeCollection.items.length === 0 ? getEyePreset(presetKind) : null);
-  const appearance = fieldAppearance(slot);
+  const art = collectionReady ? randomField.itemAt(column, row) : null;
+  const item = activeCollection.items.length > 0 ? art : null;
+  const appearance = fieldAppearance(column, row);
   node.art = art;
   node.appearance = appearance;
   node.textureKey = art ? `${item ? 'item' : 'preset'}:${art.id}` : '';
   node.tile.className = 'eye-tile';
   node.tile.dataset.kind = item ? 'item' : art ? 'preset' : 'empty';
+  node.tile.dataset.column = String(column);
+  node.tile.dataset.row = String(row);
+  node.tile.dataset.imageId = art?.id || '';
   node.surface.className = `eye-surface${art && !art.symbol ? ' is-photo' : ''}`;
   const source = safeUrl(art?.sourceUrl);
   node.tile.dataset.linked = String(Boolean(source));
@@ -225,7 +229,7 @@ function bindTile(node, slot) {
     return;
   }
   if (art.symbol) {
-    node.surface.innerHTML = eyeMarkup(presetKind, appearance.light);
+    node.surface.innerHTML = eyeMarkup(art.id, appearance.light);
     node.content = node.surface.firstElementChild;
     node.geometry = { x: 0, y: 0 };
   } else {
@@ -270,11 +274,6 @@ function drawFrame(time) {
     if (Math.abs(camera.vy) < .002) camera.vy = 0;
     moving = camera.vx !== 0 || camera.vy !== 0;
   }
-  // Multiples of both the content and node-pool periods preserve continuity.
-  const periodX = activeCollection.columns * poolColumns * cellSize;
-  const periodY = activeCollection.rows * poolRows * cellSize;
-  if (Math.abs(camera.x) > periodX * 2) camera.x = modulo(camera.x, periodX);
-  if (Math.abs(camera.y) > periodY * 2) camera.y = modulo(camera.y, periodY);
   const firstColumn = Math.floor(-camera.x / cellSize) - poolMargin;
   const firstRow = Math.floor(-camera.y / cellSize) - poolMargin;
   const renderTiles = [];
@@ -288,11 +287,8 @@ function drawFrame(time) {
       const node = pool[modulo(worldRow, poolRows) * poolColumns + modulo(worldColumn, poolColumns)];
       const x = camera.x + worldColumn * cellSize;
       const y = camera.y + worldRow * cellSize;
-      const localColumn = modulo(worldColumn, activeCollection.columns);
-      const localRow = modulo(worldRow, activeCollection.rows);
-      const slot = localRow * activeCollection.columns + localColumn;
       const previousIdentity = node.identity;
-      bindTile(node, slot);
+      bindTile(node, worldColumn, worldRow);
       let targetX = 0;
       let targetY = 0;
       let distanceWeight = 0;
@@ -471,8 +467,8 @@ async function refreshCollection() {
     if (sequence !== reloadSequence) return;
     activeCollection = loaded;
     collectionReady = true;
-    itemLookup = new Map(loaded.items.map(item => [item.id, item]));
-    const retained = new Set(loaded.slots.filter(Boolean).map(id => `item:${id}`));
+    randomField = createRandomField(loaded.items.length ? loaded.items : eyePresets, fieldSeed);
+    const retained = new Set(loaded.items.map(item => `item:${item.id}`));
     for (const key of textureRecords.keys()) {
       if (key.startsWith('item:') && !retained.has(key) || loaded.items.length > 0 && key.startsWith('preset:')) {
         textureRecords.delete(key);

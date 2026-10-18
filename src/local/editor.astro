@@ -2,7 +2,7 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import EditorHeader from '../components/editor/EditorHeader.astro';
 import ImageWorkspace from '../components/editor/ImageWorkspace.astro';
-import PlacementWorkspace from '../components/editor/PlacementWorkspace.astro';
+import ImageLibrary from '../components/editor/ImageLibrary.astro';
 import EditorFeedback from '../components/editor/EditorFeedback.astro';
 import { exportSources, serializeForScript } from '../lib/export-sources';
 import '../styles/editor.css';
@@ -21,10 +21,10 @@ import '../styles/editor.css';
     </div>
     <ImageWorkspace />
     <div class="section-heading placement-heading">
-      <h2><span class="section-number">02</span>配置</h2>
-      <p>マスを選び、画像をクリック。</p>
+      <h2><span class="section-number">02</span>登録画像</h2>
+      <p>配置は自動。画像をクリックして編集。</p>
     </div>
-    <PlacementWorkspace />
+    <ImageLibrary />
     <div class="status-bar" id="status-bar" role="status" aria-live="polite">
       <span class="status-dot" aria-hidden="true"></span>
       <p id="status-message">画像を取り込み、円で目の範囲を指定してください。</p>

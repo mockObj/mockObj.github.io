@@ -86,20 +86,7 @@ const ME_EYE_PRESETS = [
 const ME_EYE_PRESET_BY_ID = new Map(ME_EYE_PRESETS.map(preset => [preset.id, preset]));
 let ME_EYE_MARKUP_SERIAL = 0;
 
-export const eyeKinds = ['mouthwashing', 'curly', 'satori', 'sheikah'];
 export const eyePresets = ME_EYE_PRESETS;
-
-// Eight rows, each with three Sheikah symbols: 24 symbols and 40 image motifs.
-export const eyePattern = [
-  'sheikah',     'mouthwashing', 'satori',      'sheikah',     'curly',       'sheikah',     'mouthwashing', 'satori',
-  'curly',       'sheikah',     'mouthwashing', 'satori',      'sheikah',     'curly',       'sheikah',     'mouthwashing',
-  'satori',      'curly',       'sheikah',     'mouthwashing', 'sheikah',     'satori',      'curly',       'sheikah',
-  'mouthwashing','sheikah',     'curly',       'sheikah',     'satori',      'mouthwashing','sheikah',     'curly',
-  'sheikah',     'satori',      'mouthwashing','curly',       'sheikah',     'mouthwashing','satori',      'sheikah',
-  'curly',       'mouthwashing','sheikah',     'satori',      'mouthwashing','sheikah',     'sheikah',     'satori',
-  'satori',      'sheikah',     'curly',       'mouthwashing','sheikah',     'satori',      'curly',       'sheikah',
-  'mouthwashing','curly',       'satori',      'sheikah',     'curly',       'sheikah',     'mouthwashing','sheikah',
-];
 
 export function getEyePreset(kind) {
   return ME_EYE_PRESET_BY_ID.get(kind) || ME_EYE_PRESET_BY_ID.get('sheikah');

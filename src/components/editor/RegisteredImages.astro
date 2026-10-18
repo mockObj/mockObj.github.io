@@ -1,7 +1,7 @@
 <section class="library-panel" id="registered-images" aria-labelledby="registered-images-title">
   <div class="panel-heading">
     <h3 id="registered-images-title">登録画像の一覧 <span id="image-count">0</span></h3>
-    <span class="panel-note">画像をクリックして配置</span>
+    <span class="panel-note">画像をクリックして編集</span>
   </div>
   <p class="library-summary" id="library-summary" aria-live="polite"></p>
   <div class="library-controls">
@@ -10,11 +10,10 @@
       <select id="library-filter">
         <option value="all">すべて</option>
         <option value="duplicates">同じ画像の重複のみ</option>
-        <option value="unplaced">未配置のみ</option>
       </select>
     </label>
   </div>
-  <p class="library-note">元画像の全体を表示。同じ画像データの登録に「重複」を表示します。</p>
+  <p class="library-note">元画像の全体を表示。同じ画像の重複登録で、表示頻度が増えることはありません。</p>
   <div class="asset-library" id="asset-library"></div>
   <div class="library-empty" id="library-empty"><p>画像を追加すると、ここに並びます。</p></div>
   <p class="library-no-results" id="library-no-results" hidden>条件に合う画像はありません。</p>

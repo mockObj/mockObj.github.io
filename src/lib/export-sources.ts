@@ -8,6 +8,7 @@ import renderer from '../scripts/field-gl.js?raw';
 import model from './collection-model.js?raw';
 import shared from './collection-store.js?raw';
 import viewer from '../scripts/viewer.js?raw';
+import random from '../scripts/random-field.js?raw';
 
 export const exportSources = {
   'index.html': template,
@@ -18,6 +19,7 @@ export const exportSources = {
   'model.js': model,
   'shared.js': shared,
   'viewer.js': viewer,
+  'random-field.js': random,
 };
 
 export const serializeForScript = (value: unknown) => JSON.stringify(value)

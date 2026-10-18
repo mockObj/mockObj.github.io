@@ -12,10 +12,10 @@ const item = () => ({
 });
 
 test('rejects broken layouts, missing images and duplicated IDs', () => {
-  const data = emptyCollection();
+  const data = { version: 1, columns: 8, rows: 8, slots: Array(64).fill(null), items: [] };
   data.slots[0] = 'missing';
   assert.throws(() => validateCollection(data));
-  assert.throws(() => validateCollection({ ...emptyCollection(), slots: [] }));
+  assert.throws(() => validateCollection({ ...data, slots: [] }));
   assert.throws(() => validateCollection({ ...emptyCollection(), items: [item(), item()] }));
 });
 
@@ -25,8 +25,15 @@ test('rejects executable URLs and preserves valid crop data', () => {
   assert.throws(() => validateCollection({ ...emptyCollection(), items: [{ ...item(), sourceUrl: 'javascript:alert(1)' }] }));
   assert.throws(() => validateCollection({ ...emptyCollection(), items: [{ ...item(), image: 'data:image/svg+xml,<svg></svg>' }] }));
   const data = { ...emptyCollection(), items: [item()] };
-  data.slots[3] = 'example';
   assert.deepEqual(validateCollection(data), data);
+});
+
+test('legacy collections migrate all images, including images beyond the former 64 slots', () => {
+  const items = Array.from({ length: 100 }, (_, index) => ({ ...item(), id: 'eye-' + index }));
+  const data = { version: 1, columns: 8, rows: 8, slots: Array(64).fill(null), items };
+  data.slots[0] = items[0].id;
+  assert.deepEqual(validateCollection(data), { version: 2, items });
+  assert.deepEqual(validateCollection({ ...data, columns: 10, rows: 10, slots: Array(100).fill(null) }), { version: 2, items });
 });
 
 test('an invalid JSON import never overwrites the published collection', async () => {

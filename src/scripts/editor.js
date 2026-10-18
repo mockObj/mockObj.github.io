@@ -1,6 +1,5 @@
 import { loadCollection, saveCollection, emptyCollection, validateCollection, safeUrl, newId, readImageFile, readImageUrl, downloadJSON, downloadSite, createSiteHTML, isPortableEditor } from '../lib/collection-store.js';
-import { eyePattern, eyeKinds, eyeMarkup, getEyePreset } from './eyes.js';
-import { FIELD_GEOMETRY, fieldAppearance } from './field-layout.js';
+import { FIELD_GEOMETRY } from './field-layout.js';
 
 const $ = id => document.getElementById(id);
 document.documentElement.style.setProperty('--eye-inset', `${(1 - FIELD_GEOMETRY.artFraction) * 50}%`);
@@ -14,7 +13,6 @@ const ui = {
   newImage: $('new-image'), choose: $('choose-images'), importUrl: $('load-image-url'),
   files: $('image-file-input'), dataFile: $('data-file-input'),
   importData: $('import-data'), exportData: $('export-data'), exportSite: $('export-site'),
-  grid: $('placement-grid'), slotLabel: $('selected-slot-label'), clearSlot: $('clear-slot'),
   library: $('asset-library'), libraryEmpty: $('library-empty'), count: $('image-count'),
   librarySearch: $('library-search'), libraryFilter: $('library-filter'),
   librarySummary: $('library-summary'), libraryNoResults: $('library-no-results'),
@@ -28,7 +26,6 @@ const cropEntries = new Map();
 const assetNodes = new Map();
 let collection = emptyCollection();
 let activeId = null;
-let selectedSlot = 0;
 let pendingSource = '';
 let working = false;
 let loadReady = false;
@@ -43,9 +40,8 @@ let portableNeedsExport = false;
 
 const clamp = (number, min, max) => Math.max(min, Math.min(max, number));
 const copyItem = item => ({ ...item, eye: { ...item.eye } });
-const copyCollection = data => ({ ...data, slots: [...data.slots], items: data.items.map(copyItem) });
+const copyCollection = data => ({ ...data, items: data.items.map(copyItem) });
 const activeDraft = () => activeId ? drafts.get(activeId) : null;
-const fallbackKind = index => eyePattern[index % 64] || eyeKinds[index % eyeKinds.length];
 
 function setStatus(message, state = '') {
   ui.statusMessage.textContent = message;
@@ -59,7 +55,6 @@ function updateControls() {
   for (const control of [ui.choose, ui.newImage, ui.importUrl, ui.exportData, ui.exportSite, ui.source, ui.imageUrl, ui.librarySearch, ui.libraryFilter]) control.disabled = blocked;
   ui.importData.disabled = working;
   for (const control of [ui.title, ui.radius, ui.reset, ui.save, ui.remove]) control.disabled = blocked || !hasImage;
-  ui.clearSlot.disabled = blocked || !collection.slots[selectedSlot];
   ui.draftState.textContent = !loadReady ? 'データを読込' : hasImage ? (dirtyIds.has(activeId) || unsavedCollection ? '未保存の変更' : isPortableEditor ? '反映済み' : '保存済み') : '画像を追加';
   ui.draftState.classList.toggle('is-dirty', hasImage && (dirtyIds.has(activeId) || unsavedCollection));
   ui.loadError.hidden = loadReady || working;
@@ -68,11 +63,10 @@ function updateControls() {
   for (const [id, elements] of assetNodes) {
     elements.card.classList.toggle('is-active', id === activeId);
     elements.badge.hidden = !dirtyIds.has(id);
-    elements.place.disabled = blocked;
+    elements.open.disabled = blocked;
     elements.edit.disabled = blocked;
     elements.remove.disabled = blocked;
   }
-  for (const button of ui.grid.children) button.disabled = blocked;
 }
 
 async function runAction(action, message, allowWithoutData = false) {
@@ -392,150 +386,74 @@ function endPointer(event) {
   ui.canvas.style.cursor = 'crosshair';
 }
 
-function renderGrid() {
-  const fragment = document.createDocumentFragment();
-  const items = new Map(collection.items.map(item => [item.id, item]));
-  for (let index = 0; index < 64; index++) {
-    const item = items.get(collection.slots[index]);
-    const appearance = fieldAppearance(index);
-    const slot = document.createElement('button');
-    slot.type = 'button';
-    slot.className = `grid-slot${item ? ' has-image' : ''}${selectedSlot === index ? ' is-selected' : ''}`;
-    const focal = Math.max(ui.grid.clientWidth || 448, 280) * 1.7;
-    slot.style.setProperty('--art-scale', String(focal / (focal - clamp(appearance.depth, -12, 12))));
-    slot.setAttribute('aria-pressed', String(selectedSlot === index));
-    slot.setAttribute('aria-label', `${Math.floor(index / 8) + 1}行 ${index % 8 + 1}列 ${item ? item.title || '画像' : '空きマス'}`);
-    slot.dataset.slot = String(index);
-    if (item) {
-      const crop = document.createElement('span'); crop.className = 'crop-tile';
-      slot.append(crop); createCrop(crop, item);
-    } else if (collection.items.length === 0) {
-      const art = document.createElement('span');
-      const kind = fallbackKind(index);
-      art.className = `slot-art${getEyePreset(kind).symbol ? '' : ' is-photo'}`;
-      art.innerHTML = eyeMarkup(kind);
-      slot.append(art);
-    }
-    const number = document.createElement('span'); number.className = 'slot-index'; number.textContent = String(index + 1).padStart(2, '0');
-    slot.append(number);
-    slot.addEventListener('click', () => { if (!working) selectSlot(index); });
-    slot.addEventListener('dragover', event => {
-      if (working || !event.dataTransfer.types.includes('application/x-me-eye-id')) return;
-      event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'copy'; slot.classList.add('is-drop-target');
-    });
-    slot.addEventListener('dragleave', event => { if (!slot.contains(event.relatedTarget)) slot.classList.remove('is-drop-target'); });
-    slot.addEventListener('drop', event => {
-      slot.classList.remove('is-drop-target');
-      const id = event.dataTransfer.getData('application/x-me-eye-id');
-      if (!id) return;
-      event.preventDefault(); event.stopPropagation();
-      void runAction(() => placeItem(id, index));
-    });
-    fragment.append(slot);
-  }
-  ui.grid.replaceChildren(fragment);
-  updateSlotLabel();
-}
-
-function selectSlot(index) {
-  selectedSlot = clamp(index, 0, 63);
-  for (const slot of ui.grid.children) {
-    const selected = Number(slot.dataset.slot) === selectedSlot;
-    slot.classList.toggle('is-selected', selected);
-    slot.setAttribute('aria-pressed', String(selected));
-  }
-  updateSlotLabel();
-}
-
-function updateSlotLabel() {
-  ui.slotLabel.textContent = `配置先 ${Math.floor(selectedSlot / 8) + 1}行 / ${selectedSlot % 8 + 1}列`;
-  ui.clearSlot.disabled = working || !loadReady || !collection.slots[selectedSlot];
-}
-
 function renderLibrary() {
   assetNodes.clear();
   const fragment = document.createDocumentFragment();
   const groups = new Map();
-  const placements = new Map(collection.items.map(item => [item.id, []]));
   collection.items.forEach((item, index) => {
     if (!groups.has(item.image)) groups.set(item.image, []);
     groups.get(item.image).push(index + 1);
   });
-  collection.slots.forEach((id, index) => placements.get(id)?.push(index));
   const search = ui.librarySearch.value.trim().toLocaleLowerCase();
   const filter = ui.libraryFilter.value;
   let duplicateCount = 0;
-  let unplacedCount = 0;
   for (const [index, item] of collection.items.entries()) {
     const sameImage = groups.get(item.image);
-    const placed = placements.get(item.id);
     const duplicate = sameImage.length > 1;
     if (duplicate) duplicateCount++;
-    if (!placed.length) unplacedCount++;
-    if (filter === 'duplicates' && !duplicate || filter === 'unplaced' && placed.length) continue;
+    if (filter === 'duplicates' && !duplicate) continue;
     if (search && !item.title.toLocaleLowerCase().includes(search)) continue;
     const card = document.createElement('div'); card.className = 'asset-card';
     card.dataset.id = item.id;
-    const place = document.createElement('button'); place.className = 'asset-place'; place.type = 'button';
-    place.setAttribute('aria-label', `${item.title || '無題'}を選択中のマスに配置`);
-    place.draggable = true;
+    const open = document.createElement('button'); open.className = 'asset-open'; open.type = 'button';
+    open.setAttribute('aria-label', `${item.title || '無題'}を編集`);
     const original = document.createElement('img'); original.className = 'asset-original';
     original.src = item.image; original.alt = item.title || '無題'; original.loading = 'lazy'; original.decoding = 'async'; original.draggable = false;
     const number = document.createElement('span'); number.className = 'asset-number'; number.textContent = `#${index + 1}`;
     const title = document.createElement('span'); title.className = 'asset-title'; title.textContent = item.title || '無題';
     title.title = item.title || '無題';
-    place.append(original, title);
-    place.addEventListener('click', () => { void runAction(() => placeItem(item.id, selectedSlot)); });
-    place.addEventListener('dragstart', event => {
-      if (working) { event.preventDefault(); return; }
-      event.dataTransfer.setData('application/x-me-eye-id', item.id);
-      event.dataTransfer.effectAllowed = 'copy';
-    });
+    open.append(original, title);
     const meta = document.createElement('div'); meta.className = 'asset-meta';
-    const count = document.createElement('span'); count.className = 'asset-placement-count';
-    count.textContent = placed.length ? `${placed.length}マスに配置` : '未配置';
+    const count = document.createElement('span'); count.className = 'asset-display-state';
+    count.textContent = duplicate ? '同じ画像は1種類として表示' : '自動配置の対象';
     const size = document.createElement('span'); size.className = 'asset-size'; size.textContent = `${item.width} × ${item.height}`;
     meta.append(count, size);
-    const location = document.createElement('p'); location.className = 'asset-locations';
-    const coordinates = placed.map(slot => `${Math.floor(slot / 8) + 1}行${slot % 8 + 1}列`);
-    location.textContent = placed.length ? coordinates.slice(0, 3).join('・') + (placed.length > 3 ? ` ほか${placed.length - 3}マス` : '') : 'この画像を削除しても配置への影響はありません。';
-    location.title = coordinates.join('・');
     const duplicateBadge = document.createElement('p'); duplicateBadge.className = 'asset-duplicate';
     duplicateBadge.hidden = !duplicate;
     duplicateBadge.textContent = duplicate ? `重複：${sameImage.map(number => `#${number}`).join('・')}` : '';
     const actions = document.createElement('div'); actions.className = 'asset-actions';
     const edit = document.createElement('button'); edit.className = 'text-button asset-edit'; edit.type = 'button'; edit.textContent = '編集 ↗';
     edit.setAttribute('aria-label', `${item.title || '無題'}の目とリンクを編集`);
-    edit.addEventListener('click', () => {
+    const editItem = () => {
       if (working) return;
       openItem(item.id);
       ui.stage.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
       setStatus(`円とリンクを編集し「${ME_EDITOR_COMMIT_LABEL}」で確定してください。`);
-    });
+    };
+    open.addEventListener('click', editItem);
+    edit.addEventListener('click', editItem);
     const remove = document.createElement('button'); remove.className = 'text-button asset-delete'; remove.type = 'button'; remove.textContent = '削除';
     remove.setAttribute('aria-label', `${item.title || '無題'}（登録${index + 1}）を削除`);
     remove.addEventListener('click', () => { void runAction(() => deleteItem(item.id)); });
     actions.append(edit, remove);
     const badge = document.createElement('span'); badge.className = 'asset-unsaved'; badge.textContent = '未保存'; badge.hidden = !dirtyIds.has(item.id);
-    card.append(number, place, meta, location, duplicateBadge, actions, badge);
+    card.append(number, open, meta, duplicateBadge, actions, badge);
     fragment.append(card);
-    assetNodes.set(item.id, { card, place, edit, remove, badge });
+    assetNodes.set(item.id, { card, open, edit, remove, badge });
   }
   ui.library.replaceChildren(fragment);
   ui.libraryEmpty.hidden = collection.items.length > 0;
   ui.count.textContent = String(collection.items.length);
-  ui.librarySummary.textContent = `登録 ${collection.items.length}件 ／ 重複 ${duplicateCount}件 ／ 未配置 ${unplacedCount}件`;
+  ui.librarySummary.textContent = `登録 ${collection.items.length}件 ／ 表示対象 ${groups.size}種類 ／ 重複 ${duplicateCount}件`;
   ui.libraryNoResults.hidden = !collection.items.length || assetNodes.size > 0;
 }
 
 async function deleteItem(id) {
   const item = collection.items.find(item => item.id === id);
   if (!item) return;
-  const placed = collection.slots.filter(slot => slot === id).length;
-  if (!window.confirm(`「${item.title || '無題'}」を登録画像から削除しますか？\nこの画像を配置した${placed}マスも空欄になります。`)) return;
+  if (!window.confirm(`「${item.title || '無題'}」を登録画像から削除しますか？\nほかの登録画像は残ります。`)) return;
   const candidate = copyCollection(collection);
   candidate.items = candidate.items.filter(item => item.id !== id);
-  candidate.slots = candidate.slots.map(slot => slot === id ? null : slot);
   // Save successfully before removing the image from the editor.
   await saveCollection(candidate);
   collection = candidate;
@@ -544,23 +462,13 @@ async function deleteItem(id) {
   drafts.delete(id); dirtyIds.delete(id);
   if (activeId === id) openItem(null);
   renderArrangement();
-  setStatus(`「${item.title || '無題'}」を削除しました。${placed}マスを空欄にしました。`);
+  setStatus(`「${item.title || '無題'}」を削除しました。残った画像を自動で配置します。`);
 }
 
 function renderArrangement() {
-  renderGrid();
   renderLibrary();
   refreshCrops();
   updateControls();
-}
-
-async function placeItem(id, index) {
-  if (!collection.items.some(item => item.id === id)) throw new Error('配置する画像が見つかりません。');
-  const candidate = collectionWithDrafts(dirtyIds.has(id) ? [id] : []);
-  candidate.slots[index] = id;
-  selectedSlot = index;
-  await persist(candidate, [id]);
-  setStatus(`${Math.floor(index / 8) + 1}行 ${index % 8 + 1}列に配置しました。${isPortableEditor ? '「データを書出」でファイルに保存できます。' : 'このブラウザに保存しました。'}`);
 }
 
 function titleFromUrl(url) {
@@ -575,10 +483,6 @@ function makeItem(result, title, source) {
 async function addItems(items) {
   const candidate = copyCollection(collection);
   candidate.items.push(...items);
-  for (const item of items) {
-    const empty = candidate.slots.indexOf(null);
-    if (empty !== -1) candidate.slots[empty] = item.id;
-  }
   collection = validateCollection(candidate);
   for (const item of items) { drafts.set(item.id, copyItem(item)); dirtyIds.add(item.id); }
   pendingSource = '';
@@ -786,14 +690,6 @@ ui.remove.addEventListener('click', () => {
 for (const [control, event] of [[ui.librarySearch, 'input'], [ui.libraryFilter, 'change']]) {
   control.addEventListener(event, () => { renderLibrary(); refreshCrops(); updateControls(); });
 }
-ui.clearSlot.addEventListener('click', () => {
-  void runAction(async () => {
-    const candidate = copyCollection(collection);
-    candidate.slots[selectedSlot] = null;
-    await persist(candidate);
-    setStatus('このマスを空けました。登録した画像は残っています。');
-  });
-});
 ui.importData.addEventListener('click', () => { if (!working) ui.dataFile.click(); });
 ui.dataFile.addEventListener('change', () => {
   const file = ui.dataFile.files[0]; ui.dataFile.value = '';
@@ -833,7 +729,7 @@ ui.canvas.addEventListener('keydown', event => {
 });
 
 ui.stage.addEventListener('dragenter', event => {
-  if (working || event.dataTransfer.types.includes('application/x-me-eye-id')) return;
+  if (working) return;
   event.preventDefault(); dropDepth++; ui.stage.classList.add('is-dragover');
 });
 ui.stage.addEventListener('dragleave', () => {
@@ -841,12 +737,11 @@ ui.stage.addEventListener('dragleave', () => {
   if (!dropDepth) ui.stage.classList.remove('is-dragover');
 });
 document.addEventListener('dragover', event => {
-  if (event.dataTransfer.types.some(type => ['Files', 'text/uri-list', 'text/plain', 'text/html', 'application/x-me-eye-id'].includes(type))) event.preventDefault();
+  if (event.dataTransfer.types.some(type => ['Files', 'text/uri-list', 'text/plain', 'text/html'].includes(type))) event.preventDefault();
 });
 document.addEventListener('drop', event => {
   event.preventDefault();
   dropDepth = 0; ui.stage.classList.remove('is-dragover');
-  if (event.dataTransfer.getData('application/x-me-eye-id')) return;
   const data = readTransfer(event.dataTransfer);
   void runAction(() => importTransfer(data));
 });
@@ -869,7 +764,7 @@ window.addEventListener('beforeunload', event => {
 
 if ('ResizeObserver' in window) {
   const observer = new ResizeObserver(() => { drawCanvas(); renderMainPreview(); refreshCrops(); });
-  for (const element of [ui.stage, ui.preview, ui.grid, ui.library]) observer.observe(element);
+  for (const element of [ui.stage, ui.preview, ui.library]) observer.observe(element);
 } else window.addEventListener('resize', () => { drawCanvas(); renderMainPreview(); refreshCrops(); });
 
 void runAction(async () => {

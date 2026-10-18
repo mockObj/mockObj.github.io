@@ -14,7 +14,7 @@ if (!input) {
     const temporary = `${target}.tmp`;
     await writeFile(temporary, JSON.stringify(collection, null, 2) + '\n');
     await rename(temporary, target);
-    console.log(`${collection.items.length}枚の画像と64マスの配置を src/data/collection.json に保存しました。`);
+    console.log(`${collection.items.length}枚の登録画像を src/data/collection.json に保存しました。配置は自動生成されます。`);
     console.log('npm run build で確認後、変更を commit / push すると公開されます。');
   } catch (error) {
     console.error('取り込み失敗: ' + error.message);
