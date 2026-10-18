@@ -17,9 +17,9 @@
   <link rel="stylesheet" href="./viewer.css">
 </head>
 <body>
-  <div id="loading-screen" class="loading-screen" role="status" aria-label="目を集めています" aria-live="polite">
-    <div class="loading-eye" aria-hidden="true"><div class="loading-eye-blink"><span class="loading-eye-gaze"><span class="loading-eye-ring"></span><span class="loading-eye-pupil"></span></span></div></div>
-    <span class="loading-caption" aria-hidden="true">目を集めています</span>
+  <div id="loading-screen" class="loading-screen" role="status" aria-label="Now loading..." aria-live="polite">
+    <span class="loading-caption" aria-hidden="true">Now loading...</span>
+    <div class="loader loader--auto" aria-hidden="true"><span class="loader__eye"></span><span class="loader__eye"></span></div>
   </div>
   <main id="field" aria-label="目の空間。ドラッグ、スクロール、矢印キーで移動できます。" aria-busy="true" tabindex="0">
     <canvas id="scene" aria-hidden="true"></canvas>

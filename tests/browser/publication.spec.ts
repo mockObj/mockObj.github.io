@@ -88,37 +88,29 @@ test('more than 64 registered images appear across an unbounded field and stay f
 test.describe('loading and constrained browsers', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test('loading eyes repeat their glances and two blinks until assets are ready, then fade', async ({ page }) => {
+  test('sleepy loading eyes repeat until assets are ready, then close and fade', async ({ page }) => {
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     await page.route('**/content/me/viewer.json', async route => { await gate; await route.fulfill({ json: { version: 2, items: [] } }); });
     await page.goto('/content/me/', { waitUntil: 'domcontentloaded' });
     const loader = page.locator('#loading-screen');
     await expect(loader).toBeVisible();
+    await expect(loader.locator('.loading-caption')).toHaveText('Now loading...');
+    const caption = await loader.locator('.loading-caption').boundingBox();
+    const eyes = await loader.locator('.loader').boundingBox();
+    expect(caption!.y + caption!.height).toBeLessThan(eyes!.y);
     const pose = (time: number) => loader.evaluate((element, time) => {
       for (const animation of element.getAnimations({ subtree: true })) { animation.pause(); animation.currentTime = time; }
-      const gaze = new DOMMatrixReadOnly(getComputedStyle(element.querySelector('.loading-eye-gaze')!).transform);
-      const blink = new DOMMatrixReadOnly(getComputedStyle(element.querySelector('.loading-eye-blink')!).transform);
-      return { x: gaze.m41, y: gaze.m42, scale: blink.m22 };
+      return new DOMMatrixReadOnly(getComputedStyle(element.querySelector('.loader__eye')!, '::after').transform).m42;
     }, time);
-    expect(await pose(600)).toMatchObject({ x: -6, y: -5 });
-    expect(await pose(1300)).toMatchObject({ x: 6, y: -5 });
-    expect(await pose(2000)).toMatchObject({ x: -5, y: 5 });
-    expect(await pose(2500)).toMatchObject({ x: 0, y: 0 });
-    expect((await pose(2640)).scale).toBeLessThan(.1);
-    expect((await pose(2800)).scale).toBe(1);
-    expect((await pose(3024)).scale).toBeLessThan(.1);
-    expect((await pose(3160)).scale).toBe(1);
-    expect(await pose(7000)).toMatchObject({ x: -6, y: -5 });
+    expect(await pose(0)).toBe(0);
+    expect(await pose(6000)).toBe(16);
+    expect(await pose(12000)).toBe(0);
     await expect(loader).toBeVisible();
     await expect(loader).not.toHaveAttribute('data-ready');
     release();
     await expect(loader).toHaveAttribute('data-ready', 'true', { timeout: 15000 });
-    await loader.evaluate(element => {
-      for (const animation of element.getAnimations({ subtree: true })) { animation.currentTime = 3100; animation.play(); }
-    });
     await expect(loader).toHaveClass(/is-leaving/);
-    expect(await loader.locator('.loading-eye-gaze').evaluate(element => getComputedStyle(element).animationPlayState)).toBe('paused');
     await expect(loader).toHaveCount(0, { timeout: 5000 });
     await expect(page.locator('#field')).not.toHaveAttribute('aria-busy');
   });

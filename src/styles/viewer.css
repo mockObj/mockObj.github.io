@@ -3,17 +3,17 @@
 html,body{margin:0;width:100%;height:100%;overflow:hidden;overflow:clip;background:#111110;overscroll-behavior:none;overflow-anchor:none}
 body{position:fixed;inset:0}
 [hidden]{display:none!important}
-.loading-screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;background:#111110;opacity:1;transition:opacity .65s cubic-bezier(.22,.61,.36,1);touch-action:none}
+.loading-screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#111110;opacity:1;transition:opacity .65s cubic-bezier(.22,.61,.36,1);touch-action:none}
 .loading-screen.is-leaving{opacity:0;pointer-events:none}
-.loading-screen.is-leaving .loading-eye-blink,.loading-screen.is-leaving .loading-eye-gaze{animation-play-state:paused}
-.loading-eye{width:76px;height:76px}
-.loading-eye-blink{position:relative;width:100%;height:100%;overflow:hidden;border:3px solid #000;border-radius:50%;background:#e8e5dc;box-shadow:0 0 0 1px #e8e5dc;transform-origin:center;animation:eye-blink 3.2s linear infinite;will-change:transform}
-.loading-eye-gaze{position:absolute;left:16%;top:16%;width:68%;height:68%;border:3px solid #000;border-radius:50%;animation:eye-look 3.2s cubic-bezier(.4,0,.2,1) infinite;will-change:transform}
-.loading-eye-ring{position:absolute;inset:21%;border:3px solid #000;border-radius:50%}
-.loading-eye-pupil{position:absolute;left:calc(50% - 5px);top:calc(50% - 5px);width:10px;height:10px;border-radius:50%;background:#000}
-.loading-caption{color:#aaa89f;font-size:10px;letter-spacing:.22em;opacity:.6}
-@keyframes eye-look{0%,7%{transform:translate(0,0)}14%,28%{transform:translate(-6px,-5px)}36%,49%{transform:translate(6px,-5px)}57%,68%{transform:translate(-5px,5px)}76%,100%{transform:translate(0,0)}}
-@keyframes eye-blink{0%,79%,86%,91%,98%,100%{transform:scaleY(1)}82%,83%,94%,95%{transform:scaleY(.045)}}
+@property --progress{syntax:"<number>";inherits:true;initial-value:0}
+.loader{--duration:6s;--gap:calc(16px * (1 - clamp(0,var(--progress),100) / 100));display:inline-flex;gap:12px;color:#fff;transition:--progress .2s linear}
+@supports(height:calc(1px * sqrt(1))){.loader{--gap:calc(16px * sqrt(1 - clamp(0,var(--progress),100) / 100))}}
+.loader__eye{position:relative;width:26px;height:22px}
+.loader__eye::before{content:"";position:absolute;bottom:0;left:6px;box-sizing:border-box;width:14px;height:22px;border:3px solid currentColor;border-top:0;border-radius:0 0 3px 3px;clip-path:inset(calc(19px - var(--gap)) 0 0)}
+.loader__eye::after{content:"";position:absolute;inset:0 0 auto;height:3px;border-radius:3px;background:currentColor;transform:translateY(calc(16px - var(--gap)))}
+.loader--auto{animation:loader-progress var(--duration) linear infinite alternate}
+.loading-caption{color:#aaa89f;font-size:10px;letter-spacing:.12em;opacity:.65}
+@keyframes loader-progress{from{--progress:0}to{--progress:100}}
 button,a{-webkit-tap-highlight-color:transparent}
 #field{position:absolute;inset:0;overflow:hidden;overflow:clip;isolation:isolate;touch-action:none;cursor:grab;outline:none;user-select:none;-webkit-user-select:none;background:radial-gradient(ellipse at 45% 44%,#1b1b19 0,#10100f 75%)}
 #field.is-dragging,#field.is-dragging .eye-tile{cursor:grabbing}
@@ -45,4 +45,4 @@ button,a{-webkit-tap-highlight-color:transparent}
 .viewer-status:empty{display:none}
 .noscript{position:fixed;inset:40% 10% auto;color:#c5c2b8;text-align:center;font-size:14px}
 @media(max-width:600px){.field-chrome{inset:auto auto max(17px,env(safe-area-inset-bottom)) 18px;max-width:calc(100vw - 100px)}.edit-link{right:18px;bottom:max(15px,env(safe-area-inset-bottom));font-size:10px}.gesture-hint,.source-hint{font-size:9px}.viewer-status{left:18px;top:16px}.film-grain{display:none}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}.loading-eye-blink,.loading-eye-gaze{animation:none;will-change:auto}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}.loader--auto{animation:none}}

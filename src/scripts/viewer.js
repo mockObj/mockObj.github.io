@@ -72,7 +72,9 @@ function dismissLoading() {
   if (!loadingScreen || loadingScreen.classList.contains('is-leaving')) return;
   loadingScreen.classList.add('is-leaving');
   const remove = () => loadingScreen.remove();
-  loadingScreen.addEventListener('transitionend', remove, { once: true });
+  loadingScreen.addEventListener('transitionend', event => {
+    if (event.target === loadingScreen && event.propertyName === 'opacity') remove();
+  });
   setTimeout(remove, 750);
 }
 
@@ -81,11 +83,15 @@ function readyToReveal() {
   loadingReady = true;
   if (!loadingScreen || reduceMotion.matches) { dismissLoading(); return; }
   loadingScreen.dataset.ready = 'true';
-  // Finish both blinks before fading, even when the images finish mid-glance.
-  loadingScreen.addEventListener('animationiteration', event => {
-    if (event.animationName === 'eye-look') dismissLoading();
-  }, { once: false });
-  setTimeout(dismissLoading, 3300);
+  const eyes = loadingScreen.querySelector('.loader');
+  if (!eyes) { dismissLoading(); return; }
+  // Continue from the current eyelid position, close, then fade.
+  eyes.style.setProperty('--progress', getComputedStyle(eyes).getPropertyValue('--progress'));
+  eyes.classList.remove('loader--auto');
+  requestAnimationFrame(() => {
+    eyes.style.setProperty('--progress', '100');
+    setTimeout(dismissLoading, 240);
+  });
 }
 
 function hideGestureHint() {
