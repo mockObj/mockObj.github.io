@@ -21,6 +21,14 @@ test('public viewer renders locally hosted images on desktop and mobile', async 
   expect(errors).toEqual([]);
 });
 
+test('the local viewer provides a working editor link', async ({ page }) => {
+  await page.goto('/content/me/');
+  await page.getByRole('link', { name: '編集', exact: true }).click();
+  await expect(page).toHaveURL(/\/content\/me\/editor\/$/);
+  await expect(page.locator('#placement-grid button')).toHaveCount(64);
+  await expect(page.locator('#choose-images')).toBeEnabled();
+});
+
 test('image edits persist, preview uses the draft, public data stays separate, JSON and standalone HTML export', async ({ page, context }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));

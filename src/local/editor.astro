@@ -1,11 +1,11 @@
 ---
-import SiteLayout from '../../../layouts/SiteLayout.astro';
-import EditorHeader from '../../../components/editor/EditorHeader.astro';
-import ImageWorkspace from '../../../components/editor/ImageWorkspace.astro';
-import PlacementWorkspace from '../../../components/editor/PlacementWorkspace.astro';
-import EditorFeedback from '../../../components/editor/EditorFeedback.astro';
-import { exportSources, serializeForScript } from '../../../lib/export-sources';
-import '../../../styles/editor.css';
+import SiteLayout from '../layouts/SiteLayout.astro';
+import EditorHeader from '../components/editor/EditorHeader.astro';
+import ImageWorkspace from '../components/editor/ImageWorkspace.astro';
+import PlacementWorkspace from '../components/editor/PlacementWorkspace.astro';
+import EditorFeedback from '../components/editor/EditorFeedback.astro';
+import { exportSources, serializeForScript } from '../lib/export-sources';
+import '../styles/editor.css';
 ---
 <SiteLayout title="画像の編集 — eyes" mode="draft" robots="noindex,nofollow">
   <EditorHeader />
@@ -36,7 +36,7 @@ import '../../../styles/editor.css';
   <script type="application/json" id="me-export-sources" set:html={serializeForScript(exportSources)} />
 </SiteLayout>
 <script>
-  import '../../../scripts/editor.js';
+  import '../scripts/editor.js';
 </script>
 <style>
   .storage-note { margin: 20px 4.5vw 0; color: var(--quiet); line-height: 1.8; }

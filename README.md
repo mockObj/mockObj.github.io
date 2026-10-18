@@ -1,6 +1,6 @@
 # mockObj / eyes
 
-元の `eyes-self-hosted` をAstro 7の静的サイトへ移植したものです。公開予定のURLは https://mockobj.github.io/content/me/ です。
+元の `eyes-self-hosted` をAstro 7の静的サイトへ移植したものです。公開URLは https://mockobj.github.io/content/me/ です。
 
 ## 開発
 
@@ -11,7 +11,9 @@ npm ci
 npm run dev
 ```
 
-`http://localhost:4321/content/me/` が公開画面、`/content/me/editor/` が編集画面、`/content/me/preview/` が下書きのプレビューです。同じオリジン（localhostか127.0.0.1のどちらかに統一）で開いてください。
+`http://127.0.0.1:4321/content/me/` の右下に「編集」リンクが表示されます。`/content/me/editor/` が編集画面、`/content/me/preview/` が下書きのプレビューです。同じオリジン（127.0.0.1）で開いてください。
+
+編集画面と下書きプレビューは `npm run dev` のときだけ登録されます。サーバーは127.0.0.1で起動します。公開用のビルドには編集リンク・編集画面・下書きプレビューを含めず、公開URLの `/content/me/editor/` と `/content/me/preview/` は404になります。`npm run preview` は公開用ビルドの確認用なので、編集には `npm run dev` を使ってください。
 
 ## 画面とソースの対応
 
@@ -21,7 +23,8 @@ npm run dev
 | `src/components/viewer/EyeField.astro` | 目の空間、描画用canvas |
 | `src/components/viewer/FieldChrome.astro` | 操作ヒント、ステータス |
 | `src/components/editor/` | 編集ヘッダー、画像の設定、配置、読込エラー |
-| `src/pages/content/me/` | 公開画面、編集画面、下書きプレビュー、公開JSON |
+| `src/pages/content/me/` | 公開画面、公開JSON |
+| `src/local/` | ローカル開発時だけ使える編集画面と下書きプレビュー |
 | `src/styles/viewer.css` / `editor.css` | 色、余白、レスポンシブ表示 |
 | `src/scripts/viewer.js` | ドラッグ、スクロール、目の追従 |
 | `src/scripts/field-layout.js` | 画像サイズとグリッドの寸法 |
@@ -45,13 +48,13 @@ GitHub Pagesは静的配信のため、サーバー側のDBや更新APIはあり
 | IndexedDB `mockobj-content-me-v1` / `collections` / `active` | 編集画面で「保存して反映」した画像・円・配置の下書きを保存 |
 | ダウンロードした `collection.json` | バックアップ、別ブラウザへの移動、公開データの更新 |
 
-公開画面は必ず公開JSONを読みます。編集者や閲覧者の下書きが公開画面へ混ざることはありません。編集画面は誰でも自分のブラウザ内で試せますが、公開データを書き換えるにはリポジトリへの書込権限が必要です。GitHubのトークンやパスワードをサイトに埋め込む必要はありません。
+公開画面は必ず公開JSONを読みます。下書きが公開画面へ混ざることはありません。編集操作はローカル開発サーバーで行います。公開データを書き換えるにはリポジトリへの書込権限が必要です。GitHubのトークンやパスワードをサイトに埋め込む必要はありません。
 
 下書きは「保存して反映」で保存します。保存前のタイトルや円の編集はタブを閉じると失われます。ブラウザのデータ消去でも下書きが失われるので、定期的に「データを書出」を使ってください。保存領域の不足や壊れたデータは画面に表示し、JSONの読み込みで復元できます。
 
 ## 画像と配置の更新
 
-1. `/content/me/editor/` を開く。画像ファイルを追加し、画像上でドラッグして目の範囲を円で指定。
+1. `npm run dev` で起動し、`http://127.0.0.1:4321/content/me/` の「編集」を開く。画像ファイルを追加し、画像上でドラッグして目の範囲を円で指定。
 2. タイトルと出典リンクを入力し、「保存して反映」。下のマスを選び、登録画像をクリックして配置。
 3. 「プレビュー」で下書きを確認。「データを書出」で `collection.json` を保存。
 4. このリポジトリで次を実行。
@@ -89,7 +92,7 @@ npm run build
 npm run test:browser
 ```
 
-ブラウザテストはローカルにインストールされたMicrosoft Edgeを使い、公開画面、画像の追加・編集・保存・再読込、下書きと公開データの分離、JSONの再読込、オフラインHTMLの書き出し、破損データからの復元を確認します。
+ブラウザテストはローカルにインストールされたMicrosoft Edgeを使い、ローカルの編集リンク、画像の追加・編集・保存・再読込、下書きと公開データの分離、JSONの再読込、オフラインHTMLの書き出し、破損データからの復元を確認します。公開用ビルドで編集リンクがなく、編集画面と下書きプレビューが404になることも確認します。
 
 ## 初期素材の出典
 
