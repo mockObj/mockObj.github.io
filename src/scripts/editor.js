@@ -1,4 +1,4 @@
-import { loadCollection, saveCollection, emptyCollection, validateCollection, safeUrl, newId, readImageFile, readImageUrl, downloadJSON, downloadSite, createSiteHTML, isPortableEditor } from '../lib/collection-store.js';
+import { loadCollection, saveCollection, emptyCollection, validateCollection, safeUrl, newId, readImageFile, readImageUrl, downloadArchive, readCollectionFile, downloadSite, createSiteHTML, isPortableEditor } from '../lib/collection-store.js';
 import { FIELD_GEOMETRY } from './field-layout.js';
 
 const $ = id => document.getElementById(id);
@@ -477,7 +477,7 @@ function titleFromUrl(url) {
 }
 
 function makeItem(result, title, source) {
-  return { id: newId(), title: title || '無題', image: result.image, width: result.width, height: result.height, sourceUrl: source, eye: { x: .5, y: .5, r: .2 } };
+  return { id: newId(), title: title || '無題', ...result, sourceUrl: source, eye: { x: .5, y: .5, r: .2 } };
 }
 
 async function addItems(items) {
@@ -493,7 +493,6 @@ async function addItems(items) {
 
 async function importFiles(files, suppliedSource) {
   if (!files.length) return;
-  if (collection.items.length + files.length > 256) throw new Error('画像は256枚まで登録できます。');
   const source = sourceValue(suppliedSource || (!activeId ? pendingSource : ''));
   const items = [];
   const errors = [];
@@ -540,13 +539,12 @@ async function importImageUrl(value, suppliedSource) {
   const url = normalizeUrl(value);
   if (!url) throw new Error('画像そのものの http または https のURLを指定してください。');
   if (isPostUrl(url)) { applySourceLink(url); ui.imageUrl.value = ''; return; }
-  if (collection.items.length >= 256) throw new Error('画像は256枚まで登録できます。');
   const source = sourceValue(suppliedSource || (!activeId ? pendingSource : ''));
   setStatus('画像URLを読み込んでいます…', 'busy');
   const result = await readImageUrl(url);
   await addItems([makeItem(result, titleFromUrl(url), source)]);
   ui.imageUrl.value = '';
-  if (result.image.startsWith('data:')) setStatus('画像を取り込みました。円で目の範囲を指定してください。');
+  if (!result.image.startsWith('http')) setStatus('画像を取り込みました。円で目の範囲を指定してください。');
   else setStatus('画像URLを登録しました。配布用のサイトに埋め込むには、画像ファイルで取り込んでください。');
 }
 
@@ -598,16 +596,16 @@ async function exportCollection(asSite) {
     setStatus('配布用サイトを書き出しています…', 'busy');
     await downloadSite(candidate);
   } else {
-    await downloadJSON(candidate);
+    await downloadArchive(candidate);
     if (isPortableEditor) portableNeedsExport = false;
   }
   if (isPortableEditor) {
     setStatus(asSite
-      ? 'me.html を書き出しました。再編集用の保存は「データを書出」で collection.json を保管してください。'
-      : 'collection.json を書き出しました。公開用フォルダの同名ファイルと差し替えられます。');
+      ? 'me.html を書き出しました。再編集用には「データを書出」でZIPを保管してください。'
+      : 'eyes-backup.zip を書き出しました。画像と編集情報が入っています。');
     return;
   }
-  setStatus(`${asSite ? '配布用の me.html' : '画像と配置のJSONデータ'}を書き出しました。${saved ? '' : 'このブラウザへの保存には失敗しています。書き出したファイルを保管してください。'}`, saved ? '' : 'error');
+  setStatus(`${asSite ? '配布用の me.html' : '画像と編集情報のZIPバックアップ'}を書き出しました。${saved ? '' : 'このブラウザへの保存には失敗しています。書き出したファイルを保管してください。'}`, saved ? '' : 'error');
 }
 
 if (isPortableEditor) {
@@ -695,10 +693,7 @@ ui.dataFile.addEventListener('change', () => {
   const file = ui.dataFile.files[0]; ui.dataFile.value = '';
   if (!file) return;
   void runAction(async () => {
-    let parsed;
-    try { parsed = JSON.parse(await file.text()); }
-    catch { throw new Error('JSONデータを読み込めませんでした。書き出したデータを指定してください。'); }
-    const imported = validateCollection(parsed);
+    const imported = await readCollectionFile(file);
     drafts.clear(); dirtyIds.clear(); pendingSource = ''; activeId = null;
     loadReady = true;
     collection = imported;

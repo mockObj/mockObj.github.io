@@ -1,4 +1,4 @@
-const MAX_ITEMS = 256;
+import { imageKey } from './collection-format.js';
 
 export function newId() {
   return globalThis.crypto?.randomUUID?.() || `eye-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -19,15 +19,15 @@ export function emptyCollection() {
 
 function validImage(value) {
   if (typeof value !== 'string') return false;
-  return /^data:image\/(?:png|jpeg|jpg|webp|gif|avif);base64,[a-zA-Z0-9+/=\s]+$/.test(value) || Boolean(safeUrl(value));
+  return /^data:image\/(?:png|jpeg|jpg|webp|gif|avif);base64,[a-zA-Z0-9+/=\s]+$/.test(value)
+    || Boolean(imageKey(value)) || /^blob:(?:https?:\/\/[^/]+|null)\/[a-f0-9-]+$/i.test(value) || Boolean(safeUrl(value));
 }
 
 export function validateCollection(raw) {
-  if (!raw || ![1, 2].includes(raw.version) || !Array.isArray(raw.items)) {
+  if (!raw || ![1, 2, 3].includes(raw.version) || !Array.isArray(raw.items)) {
     throw new Error('対応する目のデータではありません。書き出したJSONを指定してください。');
   }
   if (raw.version === 1 && (!Number.isInteger(raw.columns) || !Number.isInteger(raw.rows) || raw.columns < 1 || raw.rows < 1 || !Array.isArray(raw.slots) || raw.slots.length !== raw.columns * raw.rows)) throw new Error('以前の配置データが不正です。');
-  if (raw.items.length > MAX_ITEMS) throw new Error(`画像は ${MAX_ITEMS} 枚まで登録できます。`);
   const ids = new Set();
   const items = raw.items.map((entry, index) => {
     if (!entry || typeof entry.id !== 'string' || !entry.id || entry.id.length > 150 || ids.has(entry.id)) throw new Error(`${index + 1} 枚目の画像IDが不正です。`);

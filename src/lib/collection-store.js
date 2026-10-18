@@ -1,5 +1,6 @@
 import { eyePresets } from '../scripts/eyes.js';
 import { emptyCollection, safeUrl, validateCollection } from './collection-model.js';
+import { imageKey, describeImage, verifyImage, IMAGE_TYPES } from './collection-format.js';
 export { emptyCollection, safeUrl, newId, validateCollection } from './collection-model.js';
 
 const ME_PORTABLE_MODE = document.documentElement.dataset.mePortable || '';
@@ -9,6 +10,10 @@ export const isPortableEditor = ME_PORTABLE_MODE === 'editor';
 const ROOT_URL = document.getElementById('me-collection') ? null : new URL(document.documentElement.dataset.meRoot || '/content/me/', window.location.href);
 const DATABASE = 'mockobj-content-me-v1';
 const STORE = 'collections';
+const ASSET_STORE = 'images';
+const imageCache = new Map();
+const imageReferences = new Map();
+const persistedImages = new Set();
 const CHANNEL_NAME = 'me-eye-grid-updates';
 let databasePromise;
 let updateChannel;
@@ -21,9 +26,10 @@ function openDatabase() {
   if (databasePromise) return databasePromise;
   databasePromise = new Promise((resolve, reject) => {
     if (!globalThis.indexedDB) { reject(new Error('このブラウザでは保存を利用できません。データを書き出して保管してください。')); return; }
-    const request = indexedDB.open(DATABASE, 1);
+    const request = indexedDB.open(DATABASE, 2);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(STORE)) request.result.createObjectStore(STORE);
+      if (!request.result.objectStoreNames.contains(ASSET_STORE)) request.result.createObjectStore(ASSET_STORE);
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -42,7 +48,7 @@ export async function loadCollection() {
     if (!ME_PORTABLE_SESSION_COLLECTION) {
       ME_PORTABLE_SESSION_COLLECTION = embedded ? validateCollection(JSON.parse(embedded.textContent)) : emptyCollection();
     }
-    return validateCollection(ME_PORTABLE_SESSION_COLLECTION);
+    return materializeCollection(validateCollection(ME_PORTABLE_SESSION_COLLECTION));
   }
   if (embedded) return validateCollection(JSON.parse(embedded.textContent));
   // The uploaded static site always displays its published collection. It must
@@ -55,7 +61,16 @@ export async function loadCollection() {
     request.onerror = () => reject(new Error('保存したデータを読み込めませんでした。ページを開き直してください。'));
   });
   // A damaged or inaccessible saved collection must never look like an empty one.
-  if (saved !== undefined) return validateCollection(saved);
+  if (saved !== undefined) {
+    const validated = validateCollection(saved);
+    if (saved.version !== 3) {
+      // Commit the migrated metadata and binary images in one transaction.
+      // An error leaves the previous collection intact.
+      await saveCollection(validated);
+      return materializeCollection(await normalizeCollection(validated));
+    }
+    return materializeCollection(validated);
+  }
   return loadPublishedCollection();
 }
 
@@ -69,11 +84,69 @@ async function loadPublishedCollection() {
     const image = safeUrl(item.image);
     if (image && new URL(image).origin === 'https://mockobj.github.io' && new URL(image).pathname.startsWith('/content/me/images/')) item.image = new URL(new URL(image).pathname, ROOT_URL).href;
   }
-  return validateCollection(raw);
+  return ME_PORTABLE_MODE === 'public' ? validateCollection(raw) : materializeCollection(validateCollection(raw));
+}
+
+async function rememberImage(blob, suppliedKey = '') {
+  const key = suppliedKey || (await describeImage(blob)).key;
+  if (!imageCache.has(key)) {
+    const url = URL.createObjectURL(blob);
+    imageCache.set(key, { blob, url });
+    imageReferences.set(url, key);
+  }
+  return key;
+}
+
+async function originalImage(key) {
+  if (imageCache.has(key)) return imageCache.get(key).blob;
+  const db = await openDatabase();
+  const blob = await new Promise((resolve, reject) => {
+    const request = db.transaction(ASSET_STORE, 'readonly').objectStore(ASSET_STORE).get(key);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(new Error('保存した画像を読み込めませんでした。'));
+  });
+  if (blob instanceof Blob) {
+    await verifyImage(key, blob);
+    persistedImages.add(key);
+    await rememberImage(blob, key);
+    return blob;
+  }
+  // Source originals are available on the local dev server only.
+  const response = await fetch(new URL('originals/' + key, ROOT_URL));
+  if (!response.ok) throw new Error('元画像が見つかりません。「データを読込」でバックアップを復元してください。');
+  const original = new Blob([await response.blob()], { type: IMAGE_TYPES[key.split('.').at(-1)] });
+  await verifyImage(key, original);
+  await rememberImage(original, key);
+  return original;
+}
+
+async function normalizeCollection(collection) {
+  const data = validateCollection(collection);
+  const items = [];
+  for (const entry of data.items) {
+    let key = imageKey(entry.image) || imageReferences.get(entry.image);
+    if (entry.image.startsWith('data:')) key = await rememberImage(await (await fetch(entry.image)).blob());
+    if (entry.image.startsWith('blob:') && !key) throw new Error('画像の保存情報が見つかりません。画像を取り込み直してください。');
+    items.push(key ? { ...entry, image: `asset:${key}`, imageGroup: key.slice(0, 64) } : entry);
+  }
+  return { version: 3, items };
+}
+
+async function materializeCollection(collection) {
+  const items = [];
+  for (const item of collection.items) {
+    let key = imageKey(item.image);
+    if (item.image.startsWith('data:')) key = await rememberImage(await (await fetch(item.image)).blob());
+    if (key) {
+      await originalImage(key);
+      items.push({ ...item, image: imageCache.get(key).url, imageGroup: key.slice(0, 64) });
+    } else items.push(item);
+  }
+  return validateCollection({ version: 2, items });
 }
 
 export async function saveCollection(collection) {
-  const data = validateCollection(collection);
+  const data = await normalizeCollection(collection);
   if (isPortableEditor) {
     // Local files have browser-dependent storage permissions. Portable editing
     // stays in this session; the explicit JSON download is the durable copy.
@@ -81,12 +154,33 @@ export async function saveCollection(collection) {
     return;
   }
   const db = await openDatabase();
+  const keys = new Set(data.items.map(item => imageKey(item.image)).filter(Boolean));
+  for (const key of keys) if (!persistedImages.has(key)) await originalImage(key);
   await new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE, 'readwrite');
+    const transaction = db.transaction([STORE, ASSET_STORE], 'readwrite');
+    const images = transaction.objectStore(ASSET_STORE);
+    for (const key of keys) {
+      const request = images.getKey(key);
+      request.onsuccess = () => { if (request.result === undefined) images.put(imageCache.get(key).blob, key); };
+    }
     transaction.objectStore(STORE).put(data, 'active');
+    const cursor = images.openKeyCursor();
+    cursor.onsuccess = () => {
+      if (!cursor.result) return;
+      if (!keys.has(cursor.result.key)) images.delete(cursor.result.key);
+      cursor.result.continue();
+    };
     transaction.oncomplete = () => resolve();
     transaction.onabort = transaction.onerror = () => reject(new Error('保存できませんでした。空き容量を確認するか、データを書き出して保管してください。'));
   });
+  persistedImages.clear();
+  for (const key of keys) persistedImages.add(key);
+  // Deleted originals should not remain in memory or occupy browser storage.
+  for (const [key, cached] of imageCache) if (!keys.has(key)) {
+    URL.revokeObjectURL(cached.url);
+    imageReferences.delete(cached.url);
+    imageCache.delete(key);
+  }
   updateChannel?.postMessage({ type: 'saved' });
   window.dispatchEvent(new Event('me:collection'));
   try { localStorage.setItem('me-eye-grid-saved', String(Date.now())); } catch {}
@@ -108,7 +202,7 @@ function loadImage(src, cors = false) {
   });
 }
 
-function imageData(image) {
+async function imageData(image) {
   const ratio = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
   const width = Math.max(1, Math.round(image.naturalWidth * ratio));
   const height = Math.max(1, Math.round(image.naturalHeight * ratio));
@@ -117,9 +211,10 @@ function imageData(image) {
   const context = canvas.getContext('2d');
   if (!context) throw new Error('画像を変換できませんでした。');
   context.drawImage(image, 0, 0, width, height);
-  const data = canvas.toDataURL('image/webp', .92);
-  if (!data.startsWith('data:image/')) throw new Error('画像を変換できませんでした。');
-  return { image: data, width, height };
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', .92));
+  if (!blob) throw new Error('画像を変換できませんでした。');
+  const key = await rememberImage(blob);
+  return { image: imageCache.get(key).url, imageGroup: key.slice(0, 64), width, height };
 }
 
 export async function readImageFile(file) {
@@ -150,26 +245,52 @@ function downloadBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-export async function downloadJSON(collection) {
-  const validated = validateCollection(collection);
-  const data = isPortableEditor ? await meEmbedCollectionImages(validated) : validated;
-  downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), 'collection.json');
+export async function downloadArchive(collection) {
+  const { createCollectionArchive } = await import('./collection-archive.js');
+  const data = await normalizeCollection(collection);
+  downloadBlob(await createCollectionArchive(data, originalImage), 'eyes-backup.zip');
+}
+
+export async function readCollectionFile(file) {
+  if (/\.zip$/i.test(file.name)) {
+    const { readCollectionArchive } = await import('./collection-archive.js');
+    const { collection, images } = await readCollectionArchive(file);
+    for (const [key, blob] of images) await rememberImage(blob, key);
+    return materializeCollection(collection);
+  }
+  let raw;
+  try { raw = JSON.parse(await file.text()); }
+  catch { throw new Error('バックアップZIPまたは以前のJSONを指定してください。'); }
+  const data = validateCollection(raw);
+  // Legacy JSON backups must contain their own images or external URLs.
+  if (data.items.some(item => imageKey(item.image) || item.image.startsWith('blob:'))) throw new Error('画像を含むバックアップZIPを指定してください。');
+  return materializeCollection(data);
 }
 
 async function meEmbedCollectionImages(data) {
   const embeddedItems = [];
   for (const entry of data.items) {
     if (entry.image.startsWith('data:')) { embeddedItems.push(entry); continue; }
-    const result = await readImageUrl(entry.image);
-    if (!result.image.startsWith('data:')) throw new Error('「' + (entry.title || '画像') + '」を埋め込めません。画像ファイルで取り込み直してから書き出してください。');
-    embeddedItems.push({ ...entry, ...result });
+    let blob;
+    try {
+      const response = await fetch(entry.image);
+      if (!response.ok) throw new Error();
+      blob = await response.blob();
+    } catch { throw new Error('「' + (entry.title || '画像') + '」を埋め込めません。画像ファイルで取り込み直してください。'); }
+    const image = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('画像を書き出せませんでした。'));
+      reader.readAsDataURL(blob);
+    });
+    embeddedItems.push({ ...entry, image });
   }
   return { ...data, items: embeddedItems };
 }
 
 export async function createSiteHTML(collection) {
   const data = validateCollection(collection);
-  const files = ['index.html', 'viewer.css', 'assets/eyes.js', 'field-layout.js', 'field-gl.js', 'model.js', 'shared.js', 'random-field.js', 'viewer.js'];
+  const files = ['index.html', 'viewer.css', 'assets/eyes.js', 'field-layout.js', 'field-gl.js', 'format.js', 'model.js', 'shared.js', 'random-field.js', 'viewer.js'];
   const sourcesElement = document.getElementById('me-export-sources');
   let embeddedSources = null;
   if (sourcesElement) {
@@ -179,7 +300,7 @@ export async function createSiteHTML(collection) {
       throw new Error('埋め込まれた書き出し用ファイルが不正です。');
     }
   }
-  const [template, css, graphics, layout, renderer, model, shared, random, viewer] = await Promise.all(files.map(async name => {
+  const [template, css, graphics, layout, renderer, format, model, shared, random, viewer] = await Promise.all(files.map(async name => {
     if (embeddedSources) {
       if (!Object.prototype.hasOwnProperty.call(embeddedSources, name) || typeof embeddedSources[name] !== 'string') {
         throw new Error('サイトの書き出し用ファイル「' + name + '」が見つかりません。');
@@ -224,7 +345,7 @@ export async function createSiteHTML(collection) {
   // inserted first, so its image resolver never needs a relative asset fallback.
   const escapeScript = text => text.replace(/<\/script/gi, '<\\/script');
   const bundle = escapeScript(
-    [graphics, layout, renderer, model, shared, random, viewer].map(stripModuleDeclarations).join('\n\n')
+    [graphics, layout, renderer, format, model, shared, random, viewer].map(stripModuleDeclarations).join('\n\n')
   );
   const serializeForScript = value => JSON.stringify(value)
     .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');

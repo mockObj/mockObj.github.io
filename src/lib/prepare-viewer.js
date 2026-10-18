@@ -1,22 +1,25 @@
 import sharp from 'sharp';
 import { createHash } from 'node:crypto';
 import { validateCollection } from './collection-model.js';
+import { imageKey } from './collection-format.js';
 
 const SIDE = 384;
 const PADDING = 1.5;
 
 // Runs at build time. Originals remain in the editable collection, never in
 // the small manifest fetched by the public viewer.
-export async function prepareViewerCollection(raw, imageBase) {
+export async function prepareViewerCollection(raw, imageBase, readImage) {
   const collection = validateCollection(raw);
   const assets = new Map();
   const items = [];
   for (const item of collection.items) {
-    if (!item.image.startsWith('data:')) { items.push(item); continue; }
-    const group = createHash('sha256').update(item.image).digest('hex');
+    const stored = imageKey(item.image);
+    if (!stored && !item.image.startsWith('data:')) { items.push(item); continue; }
+    const group = stored ? stored.slice(0, 64) : createHash('sha256').update(Buffer.from(item.image.slice(item.image.indexOf(',') + 1), 'base64')).digest('hex');
     const key = createHash('sha256').update(group + JSON.stringify(item.eye)).digest('hex').slice(0, 24);
     if (!assets.has(key)) {
-      const input = Buffer.from(item.image.slice(item.image.indexOf(',') + 1), 'base64');
+      const input = stored ? await readImage(stored) : Buffer.from(item.image.slice(item.image.indexOf(',') + 1), 'base64');
+      if (stored && createHash('sha256').update(input).digest('hex') !== group) throw new Error('原本画像が破損しています: ' + item.id);
       const options = { autoOrient: true, limitInputPixels: 100000000 };
       const metadata = await sharp(input, options).metadata();
       const swapped = metadata.orientation >= 5 && metadata.orientation <= 8;

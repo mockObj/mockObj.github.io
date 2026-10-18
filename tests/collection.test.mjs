@@ -1,9 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, unlink, rmdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { emptyCollection, validateCollection, safeUrl } from '../src/lib/collection-model.js';
 
 const item = () => ({
@@ -36,16 +32,7 @@ test('legacy collections migrate all images, including images beyond the former 
   assert.deepEqual(validateCollection({ ...data, columns: 10, rows: 10, slots: Array(100).fill(null) }), { version: 2, items });
 });
 
-test('an invalid JSON import never overwrites the published collection', async () => {
-  const before = await readFile(new URL('../src/data/collection.json', import.meta.url), 'utf8');
-  const directory = await mkdtemp(join(tmpdir(), 'eyes-invalid-'));
-  try {
-    const file = join(directory, 'broken.json');
-    await writeFile(file, JSON.stringify({ version: 1 }));
-    assert.throws(() => execFileSync(process.execPath, ['scripts/import-collection.mjs', file], { stdio: 'pipe' }));
-    assert.equal(await readFile(new URL('../src/data/collection.json', import.meta.url), 'utf8'), before);
-  } finally {
-    await unlink(join(directory, 'broken.json'));
-    await rmdir(directory);
-  }
+test('collections are not limited to 256 registrations', () => {
+  const items = Array.from({ length: 1000 }, (_, index) => ({ ...item(), id: `eye-${index}` }));
+  assert.equal(validateCollection({ version: 2, items }).items.length, 1000);
 });

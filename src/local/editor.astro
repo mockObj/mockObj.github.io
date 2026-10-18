@@ -10,7 +10,7 @@ import '../styles/editor.css';
 <SiteLayout title="画像の編集 — eyes" mode="draft" robots="noindex,nofollow">
   <EditorHeader />
   <main>
-    <p class="storage-note">編集内容はこのブラウザに保存されます。公開サイトの更新には「データを書出」で保存したJSONを使います。<a href="/content/me/">公開中のサイト ↗</a><a href="#registered-images">登録画像の一覧 ↓</a></p>
+    <p class="storage-note">編集内容はこのブラウザに保存されます。「データを書出」で画像入りのZIPを保存できます。公開サイトの更新にはこのZIPを使います。<a href="/content/me/">公開中のサイト ↗</a><a href="#registered-images">登録画像の一覧 ↓</a></p>
     <EditorFeedback />
     <div class="section-heading first-heading">
       <h1><span class="section-number">01</span>画像と目</h1>
@@ -32,7 +32,7 @@ import '../styles/editor.css';
   </main>
   <footer class="page-footer"><span>下書きはこのブラウザに保存。バックアップには「データを書出」を使ってください。</span></footer>
   <input id="image-file-input" type="file" accept="image/*" multiple hidden />
-  <input id="data-file-input" type="file" accept="application/json,.json" hidden />
+  <input id="data-file-input" type="file" accept="application/zip,.zip,application/json,.json" hidden />
   <script type="application/json" id="me-export-sources" set:html={serializeForScript(exportSources)} />
 </SiteLayout>
 <script>

@@ -6,6 +6,7 @@ import graphics from '../scripts/eyes.js?raw';
 import layout from '../scripts/field-layout.js?raw';
 import renderer from '../scripts/field-gl.js?raw';
 import model from './collection-model.js?raw';
+import format from './collection-format.js?raw';
 import shared from './collection-store.js?raw';
 import viewer from '../scripts/viewer.js?raw';
 import random from '../scripts/random-field.js?raw';
@@ -17,6 +18,7 @@ export const exportSources = {
   'field-layout.js': layout,
   'field-gl.js': renderer,
   'model.js': model,
+  'format.js': format,
   'shared.js': shared,
   'viewer.js': viewer,
   'random-field.js': random,

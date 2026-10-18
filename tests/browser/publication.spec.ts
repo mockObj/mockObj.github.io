@@ -9,7 +9,8 @@ test('the published build serves the viewer without any editor or draft preview'
   await expect(page.locator('#tiles > *').first()).toBeAttached();
   await expect(page.locator('#viewer-status')).toBeEmpty();
   await expect(page.locator('a[href="/content/me/editor/"]')).toHaveCount(0);
-  expect((await request.head('/content/me/collection.json')).status()).toBe(200);
+  expect((await request.head('/content/me/collection.json')).status()).toBe(404);
+  await expect(access('dist/content/me/originals')).rejects.toThrow();
   const manifest = await request.get('/content/me/viewer.json');
   expect(manifest.status()).toBe(200);
   expect((await manifest.body()).length).toBeLessThan(200000);

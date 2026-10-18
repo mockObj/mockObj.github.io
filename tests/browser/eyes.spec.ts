@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readCollectionArchive } from '../../src/lib/collection-archive.js';
 
 // Editor scenarios start from an empty published collection, independent of
 // the owner's images currently committed to the site.
@@ -38,7 +39,7 @@ test('the local viewer provides a working editor link', async ({ page }) => {
   await expect(page.locator('#choose-images')).toBeEnabled();
 });
 
-test('image edits persist, preview uses the draft, public data stays separate, JSON and standalone HTML export', async ({ page, context }, testInfo) => {
+test('image edits persist as binary assets, preview stays separate, ZIP round-trips and standalone HTML works', async ({ page, context }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/content/me/editor/');
@@ -76,11 +77,17 @@ test('image edits persist, preview uses the draft, public data stays separate, J
   const jsonDownload = page.waitForEvent('download');
   await page.locator('#export-data').click();
   const json = await jsonDownload;
-  const data = JSON.parse(await readFile((await json.path())!, 'utf8'));
-  expect(json.suggestedFilename()).toBe('collection.json');
+  const { collection: data, images } = await readCollectionArchive(new Blob([await readFile((await json.path())!)]));
+  expect(json.suggestedFilename()).toBe('eyes-backup.zip');
   expect(data.items[0].eye.r).toBe(.18);
-  expect(data.version).toBe(2);
-  expect(data.slots).toBeUndefined();
+  expect(data.items[0].image).toMatch(/^asset:/);
+  expect(images.size).toBe(1);
+  expect(await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>(resolve => { const request = indexedDB.open('mockobj-content-me-v1', 2); request.onsuccess = () => resolve(request.result); });
+    const raw = await new Promise<any>(resolve => { const request = db.transaction('collections').objectStore('collections').get('active'); request.onsuccess = () => resolve(request.result); });
+    db.close();
+    return { version: raw.version, image: raw.items[0].image };
+  })).toEqual({ version: 3, image: data.items[0].image });
 
   const htmlDownload = page.waitForEvent('download');
   await page.locator('#export-site').click();
@@ -103,7 +110,7 @@ test('image edits persist, preview uses the draft, public data stays separate, J
   const freshEditor = await fresh.newPage();
   await freshEditor.goto('http://127.0.0.1:4321/content/me/editor/');
   await expect(freshEditor.locator('#choose-images')).toBeEnabled();
-  await freshEditor.locator('#data-file-input').setInputFiles((await json.path())!);
+  await freshEditor.locator('#data-file-input').setInputFiles({ name: 'eyes-backup.zip', mimeType: 'application/zip', buffer: await readFile((await json.path())!) });
   await expect(freshEditor.locator('#image-title')).toHaveValue('Browser test eye');
   await expect(freshEditor.locator('.asset-card')).toHaveCount(1);
   await fresh.close();
@@ -131,7 +138,7 @@ test('the local image list migrates legacy data, identifies duplicates and delet
   await expect(page.locator('.asset-duplicate:visible')).toHaveCount(2);
   await expect(page.locator('[data-id="first"] .asset-duplicate')).toHaveText('重複：#1・#2');
   await expect(page.locator('[data-id="first"] .asset-display-state')).toHaveText('同じ画像は1種類として表示');
-  await expect(page.locator('[data-id="first"] .asset-original')).toHaveAttribute('src', sameImage);
+  await expect(page.locator('[data-id="first"] .asset-original')).toHaveAttribute('src', /^blob:/);
   await expect(page.locator('#placement-grid')).toHaveCount(0);
   await page.locator('#registered-images').scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath('registered-images-desktop.png') });
@@ -163,10 +170,10 @@ test('the local image list migrates legacy data, identifies duplicates and delet
   await expect(page.locator('.asset-card')).toHaveCount(2);
   const download = page.waitForEvent('download');
   await page.locator('#export-data').click();
-  const exported = JSON.parse(await readFile((await (await download).path())!, 'utf8'));
+  const { collection: exported } = await readCollectionArchive(new Blob([await readFile((await (await download).path())!)]));
   expect(exported.items.map((item: { id: string }) => item.id)).toEqual(['second', 'third']);
   expect(exported.version).toBe(2);
-  expect(exported.slots).toBeUndefined();
+  expect('slots' in exported).toBe(false);
   expect(errors).toEqual([]);
 });
 
@@ -175,7 +182,7 @@ test('corrupt local data is reported and can be recovered by importing JSON', as
   await expect(page.locator('#choose-images')).toBeEnabled();
   await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('mockobj-content-me-v1', 1);
+      const request = indexedDB.open('mockobj-content-me-v1', 2);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -193,4 +200,35 @@ test('corrupt local data is reported and can be recovered by importing JSON', as
   await page.locator('#data-file-input').setInputFiles({ name: 'collection_mock.json', mimeType: 'application/json', buffer: Buffer.from('{"version":2,"items":[]}') });
   await expect(page.locator('#load-error')).toBeHidden();
   await expect(page.locator('#choose-images')).toBeEnabled();
+});
+
+test('existing version 1 IndexedDB drafts migrate without losing images or crop settings', async ({ page }) => {
+  await page.goto('/');
+  const image = 'data:image/jpeg;base64,' + (await readFile('public/content/me/assets/mouthwashing-official-capsule.jpg')).toString('base64');
+  await page.evaluate(async image => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('mockobj-content-me-v1', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('collections');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction('collections', 'readwrite');
+      const entry = { id: 'legacy-one', title: 'Migrated eye', image, width: 616, height: 353, sourceUrl: '', eye: { x: .4, y: .6, r: .18 } };
+      transaction.objectStore('collections').put({ version: 2, items: [entry, { ...entry, id: 'legacy-two' }] }, 'active');
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+  }, image);
+  await page.goto('/content/me/editor/');
+  await expect(page.locator('.asset-card')).toHaveCount(2);
+  await expect(page.locator('#eye-radius')).toHaveValue('18');
+  expect(await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>(resolve => { const request = indexedDB.open('mockobj-content-me-v1', 2); request.onsuccess = () => resolve(request.result); });
+    const data = await new Promise<any>(resolve => { const request = db.transaction('collections').objectStore('collections').get('active'); request.onsuccess = () => resolve(request.result); });
+    const count = await new Promise<number>(resolve => { const request = db.transaction('images').objectStore('images').count(); request.onsuccess = () => resolve(request.result); });
+    db.close();
+    return { version: data.version, images: count, shared: data.items[0].image === data.items[1].image, eye: data.items[0].eye };
+  })).toEqual({ version: 3, images: 1, shared: true, eye: { x: .4, y: .6, r: .18 } });
 });

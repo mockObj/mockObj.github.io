@@ -1,21 +1,29 @@
-import { readFile, writeFile, rename } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { readFile, stat } from 'node:fs/promises';
+import { openAsBlob } from 'node:fs';
 import { resolve } from 'node:path';
-import { validateCollection } from '../src/lib/collection-model.js';
+import { readStoredCollection, readStoredImage, writeStoredCollection } from '../src/lib/collection-files.js';
+import { readCollectionArchive } from '../src/lib/collection-archive.js';
+import { IMAGE_TYPES } from '../src/lib/collection-format.js';
 
 const input = process.argv[2];
 if (!input) {
-  console.error('使い方: npm run data:import -- "C:\\path\\to\\collection.json"');
+  console.error('使い方: npm run data:import -- "C:\\path\\to\\eyes-backup.zip"（以前のJSON・展開済みフォルダも可）');
   process.exitCode = 1;
 } else {
   try {
-    const collection = validateCollection(JSON.parse(await readFile(resolve(input), 'utf8')));
-    const target = fileURLToPath(new URL('../src/data/collection.json', import.meta.url));
-    const temporary = `${target}.tmp`;
-    await writeFile(temporary, JSON.stringify(collection, null, 2) + '\n');
-    await rename(temporary, target);
-    console.log(`${collection.items.length}枚の登録画像を src/data/collection.json に保存しました。配置は自動生成されます。`);
-    console.log('npm run build で確認後、変更を commit / push すると公開されます。');
+    const path = resolve(input);
+    let collection, readImage;
+    if ((await stat(path)).isDirectory()) {
+      collection = await readStoredCollection(path);
+      readImage = async key => new Blob([await readStoredImage(key, path)], { type: IMAGE_TYPES[key.split('.').at(-1)] });
+    } else if (/\.zip$/i.test(path)) {
+      const archive = await readCollectionArchive(await openAsBlob(path));
+      collection = archive.collection;
+      readImage = key => archive.images.get(key);
+    } else collection = JSON.parse(await readFile(path, 'utf8'));
+    const result = await writeStoredCollection(collection, readImage);
+    console.log(`${result.items.length}枚を src/data/collection/ に保存しました。画像は重複をまとめて個別保存します。`);
+    console.log('変更を commit / push すると公開されます。');
   } catch (error) {
     console.error('取り込み失敗: ' + error.message);
     process.exitCode = 1;

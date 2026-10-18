@@ -2,6 +2,9 @@ node_modules/
 dist/
 .astro/
 .task/
+.local/
+src/data/.collection-stage-*/
+src/data/.collection-previous-*/
 test-results/
 playwright-report/
 .env
