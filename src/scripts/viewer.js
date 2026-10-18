@@ -3,6 +3,7 @@ import { eyePresets, eyeMarkup } from './eyes.js';
 import { FIELD_GEOMETRY, fieldAppearance } from './field-layout.js';
 import { EyeFieldGL } from './field-gl.js';
 import { createRandomField } from './random-field.js';
+import { createLoadingScreen } from './loading-screen.js';
 
 const FIELD_ART_FRACTION = FIELD_GEOMETRY.artFraction;
 // Keep surrounding source pixels available while a fixed window clips the image.
@@ -27,13 +28,12 @@ const gestureHint = document.getElementById('gesture-hint');
 const sourceHint = document.getElementById('source-hint');
 const viewerStatus = document.getElementById('viewer-status');
 const loadingScreen = document.getElementById('loading-screen');
-const loadingStartedAt = performance.now();
+const viewerLoading = createLoadingScreen(loadingScreen, { onDismiss: () => field.removeAttribute('aria-busy') });
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const embeddedViewer = Boolean(document.getElementById('me-collection'));
 const textureRecords = new Map();
 const artworkQueue = [];
 let artworkJobs = 0;
-let loadingReady = false;
 let textureSide = 256;
 let activeCollection = emptyCollection();
 let collectionReady = false;
@@ -69,46 +69,11 @@ try { fieldRenderer = new EyeFieldGL(sceneCanvas, requestFrame); }
 catch { sceneCanvas.hidden = true; }
 
 function dismissLoading() {
-  field.removeAttribute('aria-busy');
-  if (!loadingScreen || loadingScreen.classList.contains('is-leaving')) return;
-  loadingScreen.classList.add('is-leaving');
-  const remove = () => loadingScreen.remove();
-  loadingScreen.addEventListener('transitionend', event => {
-    if (event.target === loadingScreen && event.propertyName === 'opacity') remove();
-  });
-  setTimeout(remove, 750);
+  viewerLoading.dismiss();
 }
 
 function readyToReveal() {
-  if (loadingReady) return;
-  loadingReady = true;
-  if (!loadingScreen) { dismissLoading(); return; }
-  loadingScreen.dataset.ready = 'true';
-  const eyes = loadingScreen.querySelector('.loader');
-  if (!eyes) { dismissLoading(); return; }
-  // A cached load needs no ceremonial full blink or extra second of waiting.
-  if (performance.now() - loadingStartedAt < 160) {
-    loadingScreen.style.setProperty('--fade-duration', '.22s');
-    dismissLoading();
-    return;
-  }
-  // Read the actual CSS pose once. The pending animation runs on its own
-  // timeline, never on a byte counter or the final all-images-ready boolean.
-  const eye = eyes.querySelector('.loader__eye');
-  const transform = getComputedStyle(eye, '::after').transform;
-  const closed = clampValue(transform === 'none' ? 0 : new DOMMatrixReadOnly(transform).m42 / 16, 0, 1);
-  const duration = Math.max(180, (1 - closed) * 1000 * (reduceMotion.matches ? 1.5 : 1) * 1.15 + 60);
-  eyes.style.setProperty('--lid-duration', '0ms');
-  eyes.style.setProperty('--lid-transform', transform);
-  eyes.style.setProperty('--lid-clip', getComputedStyle(eye, '::before').clipPath);
-  eyes.classList.remove('loader--auto');
-  getComputedStyle(eye, '::after').transform;
-  requestAnimationFrame(() => {
-    eyes.style.setProperty('--lid-duration', `${duration}ms`);
-    eyes.style.setProperty('--lid-transform', 'translateY(16px)');
-    eyes.style.setProperty('--lid-clip', 'inset(19px 0 0)');
-    setTimeout(dismissLoading, duration + 80);
-  });
+  viewerLoading.finish();
 }
 
 function hideGestureHint() {

@@ -13,6 +13,8 @@ npm run dev
 
 `http://127.0.0.1:4321/content/me/` の右下に「編集」リンクが表示されます。`/content/me/editor/` が編集画面、`/content/me/preview/` が下書きのプレビューです。同じオリジン（127.0.0.1）で開いてください。
 
+`http://127.0.0.1:4321/content/me/loading-test/` はローカル専用のローディング確認ページです。待ち時間（即完了〜8秒・手動完了）、再実行、途中での完了、PC幅・スマホ幅を切り替えられます。編集画面の「ローディング確認」からも開けます。本番と同じコンポーネント・CSS・完了処理を使い、登録画像や保存データは読みません。
+
 編集画面と下書きプレビューは `npm run dev` のときだけ登録されます。サーバーは127.0.0.1で起動します。公開用のビルドには編集リンク・編集画面・下書きプレビューを含めず、公開URLの `/content/me/editor/` と `/content/me/preview/` は404になります。`npm run preview` は公開用ビルドの確認用なので、編集には `npm run dev` を使ってください。
 
 ## 画面とソースの対応
@@ -28,6 +30,8 @@ npm run dev
 | `src/local/` | ローカル開発時だけ使える編集画面と下書きプレビュー |
 | `src/styles/viewer.css` / `editor.css` | 色、余白、レスポンシブ表示 |
 | `src/scripts/viewer.js` | ドラッグ、スクロール、目の追従 |
+| `src/scripts/loading-screen.js` | 本番・単体HTML・確認ページで共通のローディング完了処理 |
+| `src/local/loading-test.astro` | ローカル専用のローディング確認と操作パネル |
 | `src/scripts/random-field.js` | 重複を抑えたランダム配置、座標ごとの配置保持 |
 | `src/scripts/field-layout.js` | 画像サイズとグリッドの寸法 |
 | `src/scripts/field-gl.js` | WebGLの描画 |

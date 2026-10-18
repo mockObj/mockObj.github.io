@@ -10,6 +10,7 @@ import format from './collection-format.js?raw';
 import shared from './collection-store.js?raw';
 import viewer from '../scripts/viewer.js?raw';
 import random from '../scripts/random-field.js?raw';
+import loading from '../scripts/loading-screen.js?raw';
 
 export const exportSources = {
   'index.html': template,
@@ -22,6 +23,7 @@ export const exportSources = {
   'shared.js': shared,
   'viewer.js': viewer,
   'random-field.js': random,
+  'loading.js': loading,
 };
 
 export const serializeForScript = (value: unknown) => JSON.stringify(value)

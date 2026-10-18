@@ -1,0 +1,115 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import LoadingEye from '../components/viewer/LoadingEye.astro';
+import '../styles/viewer.css';
+---
+<SiteLayout title="ローディングの確認 — eyes" robots="noindex,nofollow">
+  <main class="loading-test-page">
+    <header class="test-heading">
+      <div><p class="test-eyebrow">LOCAL PREVIEW</p><h1>ローディングの確認</h1></div>
+      <a href="/content/me/editor/">編集画面へ ↗</a>
+    </header>
+    <p class="test-description">本番と同じローディングです。待ち時間を変えたり、好きなタイミングで完了させたりできます。</p>
+    <form id="loading-controls" class="test-controls">
+      <label>待ち時間
+        <select id="loading-delay">
+          <option value="0">すぐ完了</option><option value="300">0.3秒</option>
+          <option value="750">0.75秒</option><option value="1500">1.5秒</option>
+          <option value="3000" selected>3秒</option><option value="8000">8秒</option>
+          <option value="manual">手動で完了</option>
+        </select>
+      </label>
+      <label>表示幅
+        <select id="loading-size"><option value="desktop">PC幅</option><option value="mobile">スマホ幅（390px）</option></select>
+      </label>
+      <button class="test-primary" type="submit">再実行</button>
+      <button id="finish-loading" type="button">今すぐ完了</button>
+    </form>
+    <div class="test-status"><p id="loading-test-status" role="status" aria-live="polite">待機中</p><output id="loading-elapsed" aria-label="経過時間" aria-live="off">0.0秒</output></div>
+    <section id="loading-preview" class="loading-preview" data-size="desktop" aria-label="ローディングのプレビュー" aria-busy="true">
+      <div class="test-revealed"><img src="/favicon.svg" alt="" width="56" height="56" /><p>読み込みが終わりました</p><span>「再実行」で繰り返し確認できます</span></div>
+    </section>
+    <p class="test-note">75%まで一定速度で閉じ、待機が続くと減速します。長引いた場合は繰り返し、完了すると今の位置から閉じてフェードします。</p>
+    <template id="loading-template"><LoadingEye /></template>
+  </main>
+</SiteLayout>
+<script>
+  import { createLoadingScreen } from '../scripts/loading-screen.js';
+
+  const stage = document.querySelector<HTMLElement>('#loading-preview')!;
+  const template = document.querySelector<HTMLTemplateElement>('#loading-template')!;
+  const controls = document.querySelector<HTMLFormElement>('#loading-controls')!;
+  const delay = document.querySelector<HTMLSelectElement>('#loading-delay')!;
+  const size = document.querySelector<HTMLSelectElement>('#loading-size')!;
+  const finish = document.querySelector<HTMLButtonElement>('#finish-loading')!;
+  const status = document.querySelector<HTMLElement>('#loading-test-status')!;
+  const elapsed = document.querySelector<HTMLOutputElement>('#loading-elapsed')!;
+  const labels: Record<string, string> = { loading: '読み込みを待っています', closing: '読み込み完了・目を閉じています', fading: 'フェード中', done: '表示完了' };
+  let controller: ReturnType<typeof createLoadingScreen> | undefined;
+  let completion: ReturnType<typeof setTimeout> | undefined;
+  let ticker: ReturnType<typeof setInterval> | undefined;
+
+  function run() {
+    clearTimeout(completion);
+    clearInterval(ticker);
+    controller?.dispose();
+    stage.querySelector('.loading-screen')?.remove();
+    stage.append(template.content.cloneNode(true));
+    stage.setAttribute('aria-busy', 'true');
+    const screen = stage.querySelector<HTMLElement>('.loading-screen')!;
+    // Establish the initial pose so a 0 ms run can fade on its first frame too.
+    getComputedStyle(screen).opacity;
+    const started = performance.now();
+    const updateElapsed = () => { elapsed.textContent = `${((performance.now() - started) / 1000).toFixed(1)}秒`; };
+    elapsed.textContent = '0.0秒';
+    finish.disabled = false;
+    controller = createLoadingScreen(screen, {
+      onDismiss: () => stage.removeAttribute('aria-busy'),
+      onStateChange: (phase: string) => {
+        status.textContent = labels[phase];
+        if (phase !== 'loading') finish.disabled = true;
+        if (phase === 'done') { updateElapsed(); clearInterval(ticker); }
+      },
+    });
+    ticker = setInterval(updateElapsed, 100);
+    if (delay.value !== 'manual') completion = setTimeout(() => controller?.finish(), Number(delay.value));
+  }
+  controls.addEventListener('submit', event => { event.preventDefault(); run(); });
+  delay.addEventListener('change', run);
+  size.addEventListener('change', () => { stage.dataset.size = size.value; });
+  finish.addEventListener('click', () => { clearTimeout(completion); controller?.finish(); });
+  window.addEventListener('pagehide', () => { controller?.dispose(); clearTimeout(completion); clearInterval(ticker); });
+  window.addEventListener('pageshow', event => { if (event.persisted) run(); });
+  run();
+</script>
+<style is:global>
+  html:has(.loading-test-page), body:has(.loading-test-page) { position: static; height: auto; min-height: 100%; overflow: auto; overscroll-behavior: auto; }
+  body:has(.loading-test-page) { color: #c7c7c7; }
+  .loading-test-page { max-width: 1100px; margin: 0 auto; padding: 30px 24px 36px; }
+  .test-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+  .test-eyebrow { margin: 0 0 8px; color: #88877f; font-size: 10px; letter-spacing: .18em; }
+  .test-heading h1 { margin: 0; font-size: 22px; font-weight: 500; }
+  .test-heading a { color: #aaa89f; font-size: 12px; text-decoration: none; white-space: nowrap; }
+  .test-description, .test-note { color: #aaa89f; font-size: 12px; line-height: 1.9; }
+  .test-description { margin: 18px 0 22px; }
+  .test-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+  .test-controls label { display: flex; flex-direction: column; gap: 7px; color: #aaa89f; font-size: 11px; }
+  .test-controls select, .test-controls button { min-height: 40px; padding: 0 14px; border: 1px solid #44443e; border-radius: 6px; background: #1c1c19; color: #d8d6cd; font: inherit; font-size: 12px; }
+  .test-controls select { min-width: 160px; }
+  .test-controls button { cursor: pointer; }
+  .test-controls button:disabled { opacity: .35; cursor: default; }
+  .test-controls .test-primary { color: #111110; background: #d8d6cd; border-color: #d8d6cd; }
+  .test-controls :focus-visible, .test-heading a:focus-visible { outline: 2px solid #d8d6cd; outline-offset: 4px; }
+  .test-status { display: flex; justify-content: space-between; gap: 16px; margin: 20px 0 10px; color: #aaa89f; font-size: 11px; }
+  .test-status p { margin: 0; }
+  .test-status output { font-variant-numeric: tabular-nums; }
+  .loading-preview { position: relative; isolation: isolate; overflow: hidden; width: 100%; height: min(62vh, 560px); min-height: 300px; margin: 0 auto; border: 1px solid #34342e; border-radius: 10px; background: radial-gradient(ellipse at 50% 45%, #24241e, #111110 75%); }
+  .loading-preview[data-size=mobile] { max-width: 390px; height: 620px; }
+  .loading-preview .loading-screen { position: absolute; touch-action: pan-y; }
+  .test-revealed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; padding: 20px; }
+  .test-revealed img { opacity: .8; }
+  .test-revealed p { font-size: 14px; margin: 0; }
+  .test-revealed span { color: #88877f; font-size: 10px; }
+  .test-note { margin: 14px 0 0; }
+  @media(max-width: 540px) { .loading-test-page { padding: 24px 16px; } .test-heading h1 { font-size: 18px; } .test-heading a { font-size: 10px; } .test-controls { gap: 10px; } .test-controls label { flex: 1 1 140px; } .test-controls select { min-width: 0; width: 100%; } }
+</style>

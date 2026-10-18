@@ -18,7 +18,7 @@ test('the published build serves the viewer without any editor or draft preview'
   expect(originalRequests).toEqual([]);
 
   expect((await request.post('/content/me/publish/', { data: 'test' })).status()).toBe(404);
-  for (const route of ['editor', 'preview', 'publish']) {
+  for (const route of ['editor', 'preview', 'publish', 'loading-test']) {
     expect((await request.get(`/content/me/${route}/`)).status()).toBe(404);
     expect((await request.get(`/content/me/${route}/index.html`)).status()).toBe(404);
     await expect(access(`dist/content/me/${route}/index.html`)).rejects.toThrow();

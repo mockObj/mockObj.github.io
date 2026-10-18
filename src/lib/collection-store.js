@@ -306,7 +306,7 @@ async function meEmbedCollectionImages(data) {
 
 export async function createSiteHTML(collection) {
   const data = validateCollection(collection);
-  const files = ['index.html', 'viewer.css', 'assets/eyes.js', 'field-layout.js', 'field-gl.js', 'format.js', 'model.js', 'shared.js', 'random-field.js', 'viewer.js'];
+  const files = ['index.html', 'viewer.css', 'assets/eyes.js', 'field-layout.js', 'field-gl.js', 'format.js', 'model.js', 'shared.js', 'random-field.js', 'loading.js', 'viewer.js'];
   const sourcesElement = document.getElementById('me-export-sources');
   let embeddedSources = null;
   if (sourcesElement) {
@@ -316,7 +316,7 @@ export async function createSiteHTML(collection) {
       throw new Error('埋め込まれた書き出し用ファイルが不正です。');
     }
   }
-  const [template, css, graphics, layout, renderer, format, model, shared, random, viewer] = await Promise.all(files.map(async name => {
+  const [template, css, graphics, layout, renderer, format, model, shared, random, loading, viewer] = await Promise.all(files.map(async name => {
     if (embeddedSources) {
       if (!Object.prototype.hasOwnProperty.call(embeddedSources, name) || typeof embeddedSources[name] !== 'string') {
         throw new Error('サイトの書き出し用ファイル「' + name + '」が見つかりません。');
@@ -361,7 +361,7 @@ export async function createSiteHTML(collection) {
   // inserted first, so its image resolver never needs a relative asset fallback.
   const escapeScript = text => text.replace(/<\/script/gi, '<\\/script');
   const bundle = escapeScript(
-    [graphics, layout, renderer, format, model, shared, random, viewer].map(stripModuleDeclarations).join('\n\n')
+    [graphics, layout, renderer, format, model, shared, random, loading, viewer].map(stripModuleDeclarations).join('\n\n')
   );
   const serializeForScript = value => JSON.stringify(value)
     .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
