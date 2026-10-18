@@ -21,6 +21,7 @@ export default defineConfig({
         injectRoute({ pattern: '/content/me/editor', entrypoint: new URL('./src/local/editor.astro', import.meta.url) });
         injectRoute({ pattern: '/content/me/preview', entrypoint: new URL('./src/local/preview.astro', import.meta.url) });
         injectRoute({ pattern: '/content/me/collection.json', entrypoint: new URL('./src/local/collection.json.ts', import.meta.url) });
+        injectRoute({ pattern: '/content/me/publish/', entrypoint: new URL('./src/local/publish.ts', import.meta.url) });
         injectRoute({ pattern: '/content/me/originals/[key]', entrypoint: new URL('./src/local/original.ts', import.meta.url) });
       },
     },

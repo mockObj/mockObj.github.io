@@ -1,4 +1,4 @@
-import { loadCollection, saveCollection, emptyCollection, validateCollection, safeUrl, newId, readImageFile, readImageUrl, downloadArchive, readCollectionFile, downloadSite, createSiteHTML, isPortableEditor } from '../lib/collection-store.js';
+import { loadCollection, saveCollection, emptyCollection, validateCollection, safeUrl, newId, readImageFile, readImageUrl, downloadArchive, publishCollection, readCollectionFile, downloadSite, createSiteHTML, isPortableEditor } from '../lib/collection-store.js';
 import { FIELD_GEOMETRY } from './field-layout.js';
 
 const $ = id => document.getElementById(id);
@@ -13,6 +13,7 @@ const ui = {
   newImage: $('new-image'), choose: $('choose-images'), importUrl: $('load-image-url'),
   files: $('image-file-input'), dataFile: $('data-file-input'),
   importData: $('import-data'), exportData: $('export-data'), exportSite: $('export-site'),
+  publish: $('publish-data'),
   library: $('asset-library'), libraryEmpty: $('library-empty'), count: $('image-count'),
   librarySearch: $('library-search'), libraryFilter: $('library-filter'),
   librarySummary: $('library-summary'), libraryNoResults: $('library-no-results'),
@@ -53,6 +54,7 @@ function updateControls() {
   const hasImage = Boolean(activeDraft());
   const blocked = working || !loadReady;
   for (const control of [ui.choose, ui.newImage, ui.importUrl, ui.exportData, ui.exportSite, ui.source, ui.imageUrl, ui.librarySearch, ui.libraryFilter]) control.disabled = blocked;
+  if (ui.publish) ui.publish.disabled = blocked || isPortableEditor;
   ui.importData.disabled = working;
   for (const control of [ui.title, ui.radius, ui.reset, ui.save, ui.remove]) control.disabled = blocked || !hasImage;
   ui.draftState.textContent = !loadReady ? 'データを読込' : hasImage ? (dirtyIds.has(activeId) || unsavedCollection ? '未保存の変更' : isPortableEditor ? '反映済み' : '保存済み') : '画像を追加';
@@ -609,6 +611,7 @@ async function exportCollection(asSite) {
 }
 
 if (isPortableEditor) {
+  if (ui.publish) ui.publish.hidden = true;
   ui.save.innerHTML = '変更を反映 <span aria-hidden="true">↗</span>';
   const footer = document.querySelector('.page-footer span');
   if (footer) footer.textContent = '編集はこの画面で保持。閉じる前に「データを書出」で保存してください。';
@@ -678,7 +681,7 @@ ui.save.addEventListener('click', () => {
   void runAction(async () => {
     const id = activeId;
     await persist(collectionWithDrafts([id]), [id]);
-    setStatus(isPortableEditor ? '変更を反映しました。「サイトへ」で確認し、「データを書出」で保存してください。' : 'このブラウザに保存しました。「プレビュー」で確認できます。公開には「データを書出」を使ってください。');
+    setStatus(isPortableEditor ? '変更を反映しました。「サイトへ」で確認し、「データを書出」で保存してください。' : 'このブラウザに保存しました。公開用ファイルへ保存するときは「公開データに反映」を使ってください。');
   }, '保存しています…');
 });
 ui.remove.addEventListener('click', () => {
@@ -707,6 +710,19 @@ ui.dataFile.addEventListener('change', () => {
 ui.reload.addEventListener('click', () => window.location.reload());
 ui.exportData.addEventListener('click', () => { void runAction(() => exportCollection(false), 'データを書き出しています…'); });
 ui.exportSite.addEventListener('click', () => { void runAction(() => exportCollection(true), '配布用サイトを書き出しています…'); });
+ui.publish?.addEventListener('click', () => {
+  void runAction(async () => {
+    const ids = [...dirtyIds];
+    const candidate = collectionWithDrafts(ids);
+    const result = await publishCollection(candidate);
+    let browserSaved = true;
+    try { await persist(candidate, ids); } catch { browserSaved = false; }
+    const message = result.staged
+      ? `${result.count}枚を公開用ファイルに保存し、Gitのステージへ追加しました。commit / pushすると公開されます。`
+      : `${result.count}枚を公開用ファイルに保存しました。ステージへの追加は失敗したため、git add src/data/collection を実行してください。`;
+    setStatus(message + (browserSaved ? '' : ' ブラウザの下書き保存には失敗しています。'), result.staged && browserSaved ? '' : 'error');
+  }, '公開用ファイルに保存しています…');
+});
 
 ui.canvas.addEventListener('pointerdown', startPointer);
 ui.canvas.addEventListener('pointermove', movePointer);

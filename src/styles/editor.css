@@ -13,7 +13,7 @@ button{border-radius:0}
 [hidden]{display:none!important}
 .page-header{min-height:104px;margin:0 4.5vw;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);gap:24px}
 .editor-title{font-size:15px;font-weight:700;line-height:1.6;letter-spacing:.025em;flex-shrink:0}
-.header-actions{display:flex;align-items:center;gap:10px}
+.header-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;min-width:0;gap:10px}
 .button{display:inline-flex;align-items:center;justify-content:center;gap:20px;min-height:42px;padding:0 17px;background:#242424;color:var(--ink);border:1px solid #4b4b4b;font-size:12px;font-weight:700;white-space:nowrap;transition:background .16s,color .16s,transform .16s}
 .button:hover:not(:disabled){background:#303030}
 .button-dark{background:#b6b6b6;color:#191919;border-color:#b6b6b6}
@@ -146,6 +146,7 @@ input:focus{border-color:var(--ink)}
   .editor-title{font-size:13px;padding-top:7px}
   .header-actions{padding-top:3px;gap:9px}.header-actions .button{font-size:10px;min-height:32px;padding:0 9px;gap:10px}
   .header-actions .button-quiet{position:absolute;bottom:7px;left:0;padding:0;font-size:10px;min-height:27px}.header-actions #export-data{left:100px}
+  .header-actions #publish-data{position:absolute;bottom:7px;right:0}
   .viewer-link{font-size:10px;margin-left:4px}.viewer-link span{margin-left:2px}
   main{padding:0 20px}.first-heading{margin:28px 0 15px}.section-heading h1,.section-heading h2{font-size:16px;gap:11px}
   .section-number{font-size:9px}.section-actions{gap:15px}.section-actions .text-button{font-size:10px}.draft-state{font-size:9px}

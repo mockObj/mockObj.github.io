@@ -245,10 +245,26 @@ function downloadBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-export async function downloadArchive(collection) {
+async function collectionArchive(collection) {
   const { createCollectionArchive } = await import('./collection-archive.js');
   const data = await normalizeCollection(collection);
-  downloadBlob(await createCollectionArchive(data, originalImage), 'eyes-backup.zip');
+  return createCollectionArchive(data, originalImage);
+}
+
+export async function downloadArchive(collection) {
+  downloadBlob(await collectionArchive(collection), 'eyes-backup.zip');
+}
+
+export async function publishCollection(collection) {
+  if (isPortableEditor || ME_PORTABLE_MODE !== 'draft' || !ROOT_URL) throw new Error('ローカルの編集画面から保存してください。');
+  const response = await fetch(new URL('publish/', ROOT_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/zip', 'X-Eyes-Editor': 'local' },
+    body: await collectionArchive(collection),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.saved) throw new Error(result.error || '公開用ファイルに保存できませんでした。');
+  return result;
 }
 
 export async function readCollectionFile(file) {

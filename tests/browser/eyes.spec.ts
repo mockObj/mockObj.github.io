@@ -232,3 +232,26 @@ test('existing version 1 IndexedDB drafts migrate without losing images or crop 
     return { version: data.version, images: count, shared: data.items[0].image === data.items[1].image, eye: data.items[0].eye };
   })).toEqual({ version: 3, images: 1, shared: true, eye: { x: .4, y: .6, r: .18 } });
 });
+
+test('the publication button includes unsaved edits and image bytes without downloading a file', async ({ page }) => {
+  let submitted: Awaited<ReturnType<typeof readCollectionArchive>> | undefined;
+  await page.route('**/content/me/publish/', async route => {
+    const request = route.request();
+    expect(request.headers()['x-eyes-editor']).toBe('local');
+    submitted = await readCollectionArchive(new Blob([new Uint8Array(request.postDataBuffer()!)]));
+    await route.fulfill({ json: { saved: true, staged: true, count: submitted.collection.items.length } });
+  });
+  await page.goto('/content/me/editor/');
+  await expect(page.locator('#choose-images')).toBeEnabled();
+  await page.locator('#image-file-input').setInputFiles(resolve('public/content/me/assets/mouthwashing-official-capsule.jpg'));
+  await expect(page.locator('#image-count')).toHaveText('1');
+  await page.locator('#image-title').fill('Publish unsaved title');
+  await page.locator('#eye-radius').fill('18');
+  await page.getByRole('button', { name: '公開データに反映', exact: true }).click();
+  await expect(page.locator('#status-message')).toContainText('Gitのステージへ追加しました');
+  expect(submitted!.collection.items[0].title).toBe('Publish unsaved title');
+  expect(submitted!.collection.items[0].eye.r).toBe(.18);
+  expect(submitted!.images.size).toBe(1);
+  await page.reload();
+  await expect(page.locator('#image-title')).toHaveValue('Publish unsaved title');
+});

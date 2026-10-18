@@ -27,6 +27,7 @@ const gestureHint = document.getElementById('gesture-hint');
 const sourceHint = document.getElementById('source-hint');
 const viewerStatus = document.getElementById('viewer-status');
 const loadingScreen = document.getElementById('loading-screen');
+const loadingStartedAt = performance.now();
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const embeddedViewer = Boolean(document.getElementById('me-collection'));
 const textureRecords = new Map();
@@ -85,16 +86,28 @@ function readyToReveal() {
   loadingScreen.dataset.ready = 'true';
   const eyes = loadingScreen.querySelector('.loader');
   if (!eyes) { dismissLoading(); return; }
-  // Continue from the current eyelid position, close, then fade.
+  // A cached load needs no ceremonial full blink or extra second of waiting.
+  if (performance.now() - loadingStartedAt < 160) {
+    loadingScreen.style.setProperty('--fade-duration', '.22s');
+    dismissLoading();
+    return;
+  }
+  // Read the actual CSS pose once. The pending animation runs on its own
+  // timeline, never on a byte counter or the final all-images-ready boolean.
   const eye = eyes.querySelector('.loader__eye');
-  eyes.style.setProperty('--lid-transform', getComputedStyle(eye, '::after').transform);
+  const transform = getComputedStyle(eye, '::after').transform;
+  const closed = clampValue(transform === 'none' ? 0 : new DOMMatrixReadOnly(transform).m42 / 16, 0, 1);
+  const duration = Math.max(180, (1 - closed) * 1000 * (reduceMotion.matches ? 1.5 : 1) * 1.15 + 60);
+  eyes.style.setProperty('--lid-duration', '0ms');
+  eyes.style.setProperty('--lid-transform', transform);
   eyes.style.setProperty('--lid-clip', getComputedStyle(eye, '::before').clipPath);
   eyes.classList.remove('loader--auto');
   getComputedStyle(eye, '::after').transform;
   requestAnimationFrame(() => {
+    eyes.style.setProperty('--lid-duration', `${duration}ms`);
     eyes.style.setProperty('--lid-transform', 'translateY(16px)');
     eyes.style.setProperty('--lid-clip', 'inset(19px 0 0)');
-    setTimeout(dismissLoading, 240);
+    setTimeout(dismissLoading, duration + 80);
   });
 }
 
