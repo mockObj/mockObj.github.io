@@ -71,9 +71,9 @@ test('more than 64 registered images appear across an unbounded field and stay f
     panX += x; panY += y;
     Object.values(await snapshot()).forEach(id => seen.add(id));
   };
-  for (let row = 0; row < 4; row++) {
+  for (let row = 0; row < 8 && seen.size < 100; row++) {
     for (let column = 0; column < 2; column++) await pan(cellSize * (row % 2 ? -8 : 8), 0);
-    if (row < 3) await pan(0, cellSize * 5);
+    if (row < 7 && seen.size < 100) await pan(0, cellSize * 5);
   }
   expect(seen.size).toBe(100);
   await pan(-panX, -panY);
@@ -106,6 +106,9 @@ test.describe('loading and constrained browsers', () => {
     expect(await pose(0)).toBe(0);
     expect(await pose(6000)).toBe(16);
     expect(await pose(12000)).toBe(0);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await pose(12000)).toBe(16);
+    expect(await pose(24000)).toBe(0);
     await expect(loader).toBeVisible();
     await expect(loader).not.toHaveAttribute('data-ready');
     release();

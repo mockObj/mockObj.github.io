@@ -81,15 +81,19 @@ function dismissLoading() {
 function readyToReveal() {
   if (loadingReady) return;
   loadingReady = true;
-  if (!loadingScreen || reduceMotion.matches) { dismissLoading(); return; }
+  if (!loadingScreen) { dismissLoading(); return; }
   loadingScreen.dataset.ready = 'true';
   const eyes = loadingScreen.querySelector('.loader');
   if (!eyes) { dismissLoading(); return; }
   // Continue from the current eyelid position, close, then fade.
-  eyes.style.setProperty('--progress', getComputedStyle(eyes).getPropertyValue('--progress'));
+  const eye = eyes.querySelector('.loader__eye');
+  eyes.style.setProperty('--lid-transform', getComputedStyle(eye, '::after').transform);
+  eyes.style.setProperty('--lid-clip', getComputedStyle(eye, '::before').clipPath);
   eyes.classList.remove('loader--auto');
+  getComputedStyle(eye, '::after').transform;
   requestAnimationFrame(() => {
-    eyes.style.setProperty('--progress', '100');
+    eyes.style.setProperty('--lid-transform', 'translateY(16px)');
+    eyes.style.setProperty('--lid-clip', 'inset(19px 0 0)');
     setTimeout(dismissLoading, 240);
   });
 }
