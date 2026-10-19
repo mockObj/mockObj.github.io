@@ -39,7 +39,9 @@ export function createLoadingScreen(screen, { onDismiss = () => {}, onStateChang
     state('blinking');
     screen.classList.add('is-leaving');
     screen.addEventListener('animationend', blinkEnded);
-    later(remove, 450);
+    // Follow the configured CSS duration, including values expressed in seconds.
+    const duration = getComputedStyle(screen).animationDuration;
+    later(remove, parseFloat(duration) * (duration.endsWith('ms') ? 1 : 1000) + 170);
   }
   function finish() {
     if (disposed || ready) return;

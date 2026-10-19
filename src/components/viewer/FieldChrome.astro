@@ -3,5 +3,16 @@
   <p class="source-hint" id="source-hint" aria-live="polite"></p>
 </footer>
 {import.meta.env.DEV && <a class="edit-link" href="/content/me/editor/">編集 <span aria-hidden="true">↗</span></a>}
+{import.meta.env.DEV && <details id="field-debug" class="field-debug">
+  <summary>動作確認</summary>
+  <div class="field-debug__controls">
+    <label>まばたき時間 <input id="debug-blink-duration" type="number" min="60" max="10000" step="10" value="420" /> ms</label>
+    <div class="field-debug__buttons">
+      <button type="button" data-effect="glance">A：視線を戻す</button>
+      <button type="button" data-effect="blink">B：まばたき・交換</button>
+    </div>
+    <p id="field-debug-status" role="status">画面端の目を1つ選び、待ち時間なしで確認します。</p>
+  </div>
+</details>}
 <p class="viewer-status" id="viewer-status" role="status"></p>
 <noscript><p class="noscript">このサイトの表示には JavaScript が必要です。</p></noscript>

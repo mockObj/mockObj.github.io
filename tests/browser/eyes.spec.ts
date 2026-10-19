@@ -101,6 +101,7 @@ test('image edits persist as binary assets, preview stays separate, ZIP round-tr
   await standalone.goto(pathToFileURL(file).href);
   await expect(standalone.locator('#tiles > *').first()).toBeAttached();
   await expect(standalone.locator('#viewer-status')).toBeEmpty();
+  await expect(standalone.locator('#field-debug')).toHaveCount(0);
   await expect(standalone.locator('#tiles [data-kind="item"]').first()).toBeAttached();
   await expect(standalone.locator('#tiles [data-kind="preset"]')).toHaveCount(0);
   expect(requests).toEqual([]);

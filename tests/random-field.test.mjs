@@ -80,3 +80,31 @@ test('empty and single-image collections work without special dimensions', () =>
   const field = createRandomField(images(1), 1);
   assert.equal(field.itemAt(-120, 300).id, '0');
 });
+
+test('31 images do not stack again within the next fourteen rows', () => {
+  for (let seed = 0; seed < 32; seed++) {
+    const field = createRandomField(images(31), seed);
+    for (let row = -16; row < 16; row++) for (let column = -4; column < 4; column++) {
+      for (let offset = 1; offset <= 14; offset++) assert.notEqual(field.itemAt(column, row).image, field.itemAt(column, row + offset).image);
+    }
+  }
+});
+
+test('repeated image exchanges exclude all eight neighbors, overrides and alternate crops', () => {
+  const items = images(31);
+  items.push({ ...items[0], id: 'alternate-crop' });
+  const field = createRandomField(items, 42);
+  const overrides = new Map();
+  const current = (x, y) => overrides.get(`${x}:${y}`) || field.itemAt(x, y);
+  for (let index = 0; index < 200; index++) {
+    const column = index % 13 - 6, row = Math.floor(index / 13) % 9 - 4;
+    const replacement = field.replacementAt(column, row, overrides, () => (index % 10) / 10);
+    assert.ok(replacement);
+    assert.notEqual(replacement.image, current(column, row).image);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx || dy) assert.notEqual(replacement.image, current(column + dx, row + dy).image);
+    }
+    overrides.set(`${column}:${row}`, replacement);
+  }
+  assert.equal(createRandomField(images(1), 1).replacementAt(0, 0, new Map()), null);
+});

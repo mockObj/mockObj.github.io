@@ -5,6 +5,7 @@ test('the published build serves the viewer without any editor or draft preview'
   const originalRequests: string[] = [];
   page.on('request', request => { if (new URL(request.url()).pathname.endsWith('/collection.json')) originalRequests.push(request.url()); });
   const response = await page.goto('/content/me/');
+  await expect(page.locator('#field-debug')).toHaveCount(0);
   expect(response?.status()).toBe(200);
   await expect(page.locator('#tiles > *').first()).toBeAttached();
   await expect(page.locator('#viewer-status')).toBeEmpty();
@@ -126,12 +127,30 @@ for (const device of [
     await expect(loader).toBeVisible();
     await expect(loader).not.toHaveAttribute('data-ready');
     await page.waitForTimeout(180);
+    // Capture the first transition frame. Reading after expect.poll can sample
+    // hundreds of milliseconds into the close on a busy browser.
+    await loader.evaluate(element => {
+      const eyes = element.querySelector<HTMLElement>('.loader')!;
+      const observer = new MutationObserver(() => {
+        if (!(parseFloat(eyes.style.getPropertyValue('--lid-duration')) > 0)) return;
+        element.setAttribute('data-finishing-pose', String(new DOMMatrixReadOnly(getComputedStyle(element.querySelector('.loader__eye')!, '::after').transform).m42));
+        observer.disconnect();
+      });
+      observer.observe(eyes, { attributes: true, attributeFilter: ['style'] });
+      const leaving = new MutationObserver(() => {
+        if (!element.classList.contains('is-leaving')) return;
+        document.documentElement.setAttribute('data-loading-blinked', 'true');
+        leaving.disconnect();
+      });
+      leaving.observe(element, { attributes: true, attributeFilter: ['class'] });
+    });
     release();
     await expect(loader).toHaveAttribute('data-ready', 'true', { timeout: 15000 });
     await expect.poll(() => loader.locator('.loader').evaluate(element => parseFloat((element as HTMLElement).style.getPropertyValue('--lid-duration')))).toBeGreaterThan(600);
-    const finishingPose = await loader.evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element.querySelector('.loader__eye')!, '::after').transform).m42);
+    await expect(loader).toHaveAttribute('data-finishing-pose', /^\d/);
+    const finishingPose = Number(await loader.getAttribute('data-finishing-pose'));
     expect(finishingPose).toBeLessThan(12);
-    await expect(loader).toHaveClass(/is-leaving/);
+    await expect(page.locator('html')).toHaveAttribute('data-loading-blinked', 'true');
     await expect(loader).toHaveCount(0, { timeout: 5000 });
     await expect(page.locator('#field')).not.toHaveAttribute('aria-busy');
   });

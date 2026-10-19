@@ -41,10 +41,10 @@ test('touch scroll aims at screen center, keeps moving with inertia, and stops o
   const trackedEye = page.locator('.eye-tile[data-column="2"][data-row="6"]');
   const gazeY = () => trackedEye.evaluate(eye => (eye as HTMLElement & { _imageY: number })._imageY);
   const start = await cameraPosition(page);
-  await touch('touchStart', 580);
-  // The selected eye starts below screen center, so its image must look upward.
+  // Central gaze is already active before the first touch.
   await expect.poll(gazeY).toBeLessThan(-3);
   await page.screenshot({ path: testInfo.outputPath('eyes-before-swipe.png') });
+  await touch('touchStart', 580);
   for (let step = 1; step <= 16; step++) {
     await touch('touchMove', 580 - step * 15);
     await page.waitForTimeout(16);

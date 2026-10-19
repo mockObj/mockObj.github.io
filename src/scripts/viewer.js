@@ -20,6 +20,14 @@ const FIELD_ATTRACTION = Object.freeze({
 });
 const PAN_DECAY_MS = 325;
 const PAN_SAMPLE_MS = 100;
+// One lottery for the entire field, independent of the number of visible eyes.
+const FIELD_IDLE = Object.freeze({
+  startDelayMs: 60000,
+  checkIntervalMs: 10000,
+  meanIntervalMs: 180000,
+  edgeBand: .16,
+  glanceMs: 240,
+});
 
 const field = document.getElementById('field');
 const tileLayer = document.getElementById('tiles');
@@ -28,8 +36,11 @@ const gestureHint = document.getElementById('gesture-hint');
 const sourceHint = document.getElementById('source-hint');
 const viewerStatus = document.getElementById('viewer-status');
 const loadingScreen = document.getElementById('loading-screen');
+const debugPanel = document.getElementById('field-debug');
+const debugStatus = document.getElementById('field-debug-status');
 const viewerLoading = createLoadingScreen(loadingScreen, { onDismiss: () => field.removeAttribute('aria-busy') });
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const touchPointer = window.matchMedia('(pointer: coarse)');
 const embeddedViewer = Boolean(document.getElementById('me-collection'));
 const textureRecords = new Map();
 const artworkQueue = [];
@@ -57,12 +68,111 @@ let reloadSequence = 0;
 let viewerChannel;
 let fieldRenderer = null;
 const camera = { x: 0, y: 0, vx: 0, vy: 0, initialized: false };
-const gaze = { x: 0, y: 0, active: false, centered: false };
+const gaze = { x: 0, y: 0, active: touchPointer.matches, centered: touchPointer.matches };
+const artworkOverrides = new Map();
+const idleEligibleAt = performance.now() + FIELD_IDLE.startDelayMs;
+let idleTimer = 0;
+let idleLotteryPending = false;
+let idleEffect = null;
+let debugEffectRequest = '';
 const modulo = (value, period) => ((value % period) + period) % period;
 const clampValue = (value, low, high) => Math.max(low, Math.min(high, value));
 
 function requestFrame() {
   if (!frameHandle && !document.hidden) frameHandle = requestAnimationFrame(drawFrame);
+}
+
+function resetGaze() {
+  gaze.active = gaze.centered = touchPointer.matches;
+}
+
+function endIdleEffect() {
+  idleEffect?.overlay?.remove();
+  if (idleEffect) delete idleEffect.node.tile.dataset.idleEffect;
+  idleEffect = null;
+}
+
+function scheduleIdleLottery() {
+  clearTimeout(idleTimer);
+  if (document.hidden || reduceMotion.matches) return;
+  idleTimer = setTimeout(() => {
+    idleLotteryPending = true;
+    requestFrame();
+    scheduleIdleLottery();
+  }, Math.max(FIELD_IDLE.checkIntervalMs, idleEligibleAt - performance.now()));
+}
+
+function drawIdleLottery(time) {
+  if (!idleLotteryPending && !debugEffectRequest) return;
+  const requested = debugEffectRequest;
+  debugEffectRequest = '';
+  idleLotteryPending = false;
+  if (requested) endIdleEffect();
+  if (idleEffect || !collectionReady || loadingScreen?.isConnected || (!requested && (reduceMotion.matches
+      || time < idleEligibleAt || Math.random() >= FIELD_IDLE.checkIntervalMs / FIELD_IDLE.meanIntervalMs))) return;
+  const band = Math.min(fieldWidth, fieldHeight) * FIELD_IDLE.edgeBand;
+  const occluded = debugPanel?.open ? debugPanel.getBoundingClientRect() : null;
+  const candidates = pool.filter(node => {
+    if (!node.art || node.visibility !== 'visible' || node.tile === document.activeElement || node.tile === dragState?.tile) return false;
+    const x = node.tile._screenX + cellSize / 2;
+    const y = node.tile._screenY + cellSize / 2;
+    if (occluded && x >= occluded.left && x <= occluded.right && y >= occluded.top && y <= occluded.bottom) return false;
+    // Centers must be on screen, within the outer band at the time of the draw.
+    return x >= 0 && x <= fieldWidth && y >= 0 && y <= fieldHeight
+      && Math.min(x, fieldWidth - x, y, fieldHeight - y) <= band;
+  });
+  if (!candidates.length) return;
+  const node = candidates[Math.floor(Math.random() * candidates.length)];
+  const blink = requested ? requested === 'blink' : Math.random() < .5;
+  let replacement = null;
+  if (blink) {
+    replacement = randomField.replacementAt(Number(node.tile.dataset.column), Number(node.tile.dataset.row), artworkOverrides);
+    if (requested && !replacement) { debugStatus.textContent = '周囲8マスと重複しない交換先がありません。'; return; }
+    if (replacement) ensureTexture(`${activeCollection.items.length ? 'item' : 'preset'}:${replacement.id}`, replacement);
+  }
+  const type = replacement ? 'blink' : 'glance';
+  idleEffect = { node, identity: node.identity, type, replacement, start: replacement ? null : time, swapped: false, overlay: null, animations: [], duration: FIELD_IDLE.glanceMs, debug: Boolean(requested) };
+  node.tile.dataset.idleEffect = idleEffect.type;
+  if (requested) debugStatus.textContent = `${node.tile.dataset.title || '目'}：${type === 'blink' ? '個別まばたき・画像交換' : '視線を戻す'}`;
+  requestFrame();
+}
+
+function updateIdleEffect(time) {
+  const effect = idleEffect;
+  if (!effect) return;
+  if (effect.node.identity !== effect.identity || !effect.node.tile.isConnected || (reduceMotion.matches && !effect.debug)) { endIdleEffect(); return; }
+  if (effect.type === 'blink' && effect.start === null) {
+    const key = `${activeCollection.items.length ? 'item' : 'preset'}:${effect.replacement.id}`;
+    const record = ensureTexture(key, effect.replacement);
+    if (record.phase === 'error') { endIdleEffect(); return; }
+    if (record.phase !== 'ready') return;
+    const overlay = document.createElement('span');
+    overlay.className = 'loading-blink eye-blink';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = '<span class="loading-blink__upper"></span><span class="loading-blink__lower"></span>';
+    effect.node.tile.append(overlay);
+    effect.overlay = overlay;
+    effect.animations = overlay.getAnimations({ subtree: true });
+    effect.duration = Number(effect.animations[0].effect.getComputedTiming().duration);
+    effect.start = time;
+  }
+  let elapsed = time - effect.start;
+  const swapAt = effect.duration * (100 / 280);
+  if (effect.type === 'blink' && !effect.swapped && elapsed >= swapAt) {
+    // A missed frame must still show a fully closed pose during the swap.
+    effect.start += elapsed - swapAt;
+    elapsed = swapAt;
+    const node = effect.node;
+    const coordinate = `${node.tile.dataset.column}:${node.tile.dataset.row}`;
+    artworkOverrides.set(coordinate, effect.replacement);
+    node.identity = '';
+    bindTile(node, Number(node.tile.dataset.column), Number(node.tile.dataset.row));
+    effect.identity = node.identity;
+    effect.swapped = true;
+    sourceHint.classList.remove('is-visible');
+  }
+  for (const animation of effect.animations) animation.currentTime = Math.min(elapsed, effect.duration);
+  if (elapsed >= effect.duration) endIdleEffect();
 }
 
 try { fieldRenderer = new EyeFieldGL(sceneCanvas, requestFrame); }
@@ -234,10 +344,12 @@ function pumpArtwork() {
 }
 
 function bindTile(node, column, row) {
-  const identity = `${contentVersion}:${column}:${row}`;
+  const override = artworkOverrides.get(`${column}:${row}`);
+  const identity = `${contentVersion}:${column}:${row}:${override?.id || ''}`;
   if (node.identity === identity) return;
+  if (idleEffect?.node === node && node.identity !== '') endIdleEffect();
   node.identity = identity;
-  const art = collectionReady ? randomField.itemAt(column, row) : null;
+  const art = collectionReady ? override || randomField.itemAt(column, row) : null;
   const item = activeCollection.items.length > 0 ? art : null;
   const appearance = fieldAppearance(column, row);
   node.art = art;
@@ -310,6 +422,7 @@ function drawFrame(time) {
   frameHandle = 0;
   const dt = clampValue(lastFrame ? time - lastFrame : 16.67, 1, 64);
   lastFrame = time;
+  updateIdleEffect(time);
   let moving = false;
   if (!dragState) {
     const decay = reduceMotion.matches ? 55 : PAN_DECAY_MS;
@@ -376,6 +489,14 @@ function drawFrame(time) {
         node.dy *= shiftLimit / displacement;
       }
       if (Math.abs(targetX - node.dx) > .015 || Math.abs(targetY - node.dy) > .015) moving = true;
+      let gazeScale = 1;
+      if (idleEffect?.node === node && idleEffect.type === 'glance') {
+        const progress = clampValue((time - idleEffect.start) / FIELD_IDLE.glanceMs, 0, 1);
+        const amount = progress < .3 ? progress / .3 : progress < .5 ? 1 : (1 - progress) / .5;
+        gazeScale = 1 - amount * amount * (3 - 2 * amount);
+      }
+      const imageX = node.dx * gazeScale;
+      const imageY = node.dy * gazeScale;
       const depth = reduceMotion.matches ? 0 : node.appearance.depth;
       const screenX = x;
       const screenY = y;
@@ -392,8 +513,8 @@ function drawFrame(time) {
       node.tile._screenX = screenX;
       node.tile._screenY = screenY;
       node.tile._screenRadius = boundsRadius;
-      node.tile._imageX = node.dx;
-      node.tile._imageY = node.dy;
+      node.tile._imageX = imageX;
+      node.tile._imageY = imageY;
       const record = visible && node.art ? ensureTexture(node.textureKey, node.art) : null;
       if (record) neededArtwork.push(record);
       const textureReady = gpuAvailable && fieldRenderer.hasTexture(node.textureKey);
@@ -401,7 +522,7 @@ function drawFrame(time) {
       if (textureReady && node.content?.tagName === 'IMG' && node.content.hasAttribute('src')) node.content.removeAttribute('src');
       if (visible && node.content?.tagName === 'IMG' && record && ['ready', 'error'].includes(record.phase) && (!gpuAvailable || record.dom) && node.content.getAttribute('src') !== node.art.image) node.content.src = node.art.image;
       if (!textureReady && node.content && node.geometry && visible) {
-        const imagePosition = `translate3d(${(node.geometry.x + node.dx).toFixed(3)}px,${(node.geometry.y + node.dy).toFixed(3)}px,0)`;
+        const imagePosition = `translate3d(${(node.geometry.x + imageX).toFixed(3)}px,${(node.geometry.y + imageY).toFixed(3)}px,0)`;
         if (node.imagePosition !== imagePosition) { node.imagePosition = imagePosition; node.content.style.transform = imagePosition; }
       }
       // DOM fallback artwork is above the canvas, so its links must be too.
@@ -410,7 +531,7 @@ function drawFrame(time) {
       if (textureReady && visible) {
         renderTiles.push({
           x, y, size: cellSize, textureKey: node.textureKey,
-          imageX: node.dx, imageY: node.dy, tiltX: 0, tiltY: 0, boundsRadius,
+          imageX, imageY, tiltX: 0, tiltY: 0, boundsRadius,
           ...node.appearance, depth,
           crop: node.art.symbol ? [.5, .5, 1, 1] : [.5, .5, 1 / PHOTO_TEXTURE_SCALE, 1 / PHOTO_TEXTURE_SCALE],
           symbol: Boolean(node.art.symbol),
@@ -424,7 +545,8 @@ function drawFrame(time) {
     time, reduceMotion: reduceMotion.matches,
   });
   if (collectionReady && neededArtwork.length && neededArtwork.every(record => ['ready', 'error'].includes(record.phase))) readyToReveal();
-  if (moving) requestFrame();
+  drawIdleLottery(time);
+  if (moving || (idleEffect && idleEffect.start !== null)) requestFrame();
   else lastFrame = 0;
 }
 
@@ -456,6 +578,7 @@ field.addEventListener('pointerdown', event => {
   camera.vx = camera.vy = 0;
   dragState = {
     id: event.pointerId,
+    tile,
     originX: event.clientX, originY: event.clientY,
     cameraX: camera.x, cameraY: camera.y,
     samples: [{ x: event.clientX, y: event.clientY, time: event.timeStamp }],
@@ -517,7 +640,7 @@ function releasePointer(event, cancelled = false) {
     camera.vy = clampValue((last.y - first.y) / elapsed, -3.8, 3.8);
   } else camera.vx = camera.vy = 0;
   // Keep the central gaze during the coast; releasing a finger must not reset it.
-  if (cancelled) gaze.active = false;
+  if (cancelled) resetGaze();
   if (!cancelled && !ended.moved && ended.source) window.open(ended.source, '_blank', 'noopener,noreferrer');
   requestFrame();
 }
@@ -528,10 +651,10 @@ field.addEventListener('lostpointercapture', event => releasePointer(event, true
 field.addEventListener('click', event => { if (event.detail > 0) event.preventDefault(); });
 field.addEventListener('dragstart', event => event.preventDefault());
 document.documentElement.addEventListener('pointerleave', event => {
-  if (event.pointerType === 'mouse' && !dragState) { gaze.active = false; requestFrame(); }
+  if (event.pointerType === 'mouse' && !dragState) { resetGaze(); requestFrame(); }
 });
 window.addEventListener('blur', () => {
-  gaze.active = false;
+  resetGaze();
   dragState = null;
   camera.vx = camera.vy = 0;
   field.classList.remove('is-dragging');
@@ -547,7 +670,7 @@ field.addEventListener('keydown', event => {
     else { camera.vx = clampValue(camera.vx + direction[0] * .8, -4, 4); camera.vy = clampValue(camera.vy + direction[1] * .8, -4, 4); }
     hideGestureHint(); requestFrame();
   }
-  if (event.key === 'Escape') { camera.vx = camera.vy = 0; gaze.active = false; requestFrame(); }
+  if (event.key === 'Escape') { camera.vx = camera.vy = 0; resetGaze(); requestFrame(); }
 });
 
 async function refreshCollection() {
@@ -555,9 +678,23 @@ async function refreshCollection() {
   try {
     const loaded = await loadCollection();
     if (sequence !== reloadSequence) return;
+    viewerStatus.textContent = '';
+    // Refocusing an unchanged page must not rebuild every tile or interrupt an
+    // effect. Compare metadata without copying embedded image strings.
+    if (collectionReady && loaded.items.length === activeCollection.items.length && loaded.items.every((art, index) => {
+      const current = activeCollection.items[index];
+      return ['id', 'title', 'image', 'imageGroup', 'width', 'height', 'sourceUrl'].every(key => art[key] === current[key])
+        && ['x', 'y', 'r'].every(key => art.eye[key] === current.eye[key]);
+    })) { requestFrame(); return; }
     activeCollection = loaded;
     collectionReady = true;
     randomField = createRandomField(loaded.items.length ? loaded.items : eyePresets, fieldSeed);
+    endIdleEffect();
+    const available = new Map((loaded.items.length ? loaded.items : eyePresets).map(art => [art.id, art]));
+    for (const [coordinate, art] of artworkOverrides) {
+      if (available.has(art.id)) artworkOverrides.set(coordinate, available.get(art.id));
+      else artworkOverrides.delete(coordinate);
+    }
     const retained = new Set(loaded.items.map(item => `item:${item.id}`));
     for (const key of textureRecords.keys()) {
       if (key.startsWith('item:') && !retained.has(key) || loaded.items.length > 0 && key.startsWith('preset:')) {
@@ -575,14 +712,28 @@ async function refreshCollection() {
 
 
 window.addEventListener('resize', resizeField);
-window.addEventListener('focus', () => { refreshCollection(); });
+window.addEventListener('focus', () => { if (!embeddedViewer) refreshCollection(); });
 window.addEventListener('me:collection', refreshCollection);
 window.addEventListener('storage', event => { if (event.key === 'me-eye-grid-saved') refreshCollection(); });
 document.addEventListener('visibilitychange', () => {
+  idleLotteryPending = false;
+  endIdleEffect();
+  scheduleIdleLottery();
   if (document.hidden) { cancelAnimationFrame(frameHandle); frameHandle = 0; lastFrame = 0; camera.vx = camera.vy = 0; }
-  else { refreshCollection(); requestFrame(); }
+  else { if (!embeddedViewer) refreshCollection(); requestFrame(); }
 });
-reduceMotion.addEventListener('change', requestFrame);
+reduceMotion.addEventListener('change', () => { endIdleEffect(); scheduleIdleLottery(); requestFrame(); });
+touchPointer.addEventListener('change', () => { resetGaze(); requestFrame(); });
+debugPanel?.addEventListener('click', event => {
+  const button = event.target.closest('button[data-effect]');
+  if (!button) return;
+  debugEffectRequest = button.dataset.effect;
+  requestFrame();
+});
+document.getElementById('debug-blink-duration')?.addEventListener('input', event => {
+  const input = event.target;
+  if (input.validity.valid && input.valueAsNumber > 0) document.documentElement.style.setProperty('--blink-duration', `${input.valueAsNumber}ms`);
+});
 if (!embeddedViewer) {
   try {
     viewerChannel = new BroadcastChannel('me-eye-grid-updates');
@@ -591,3 +742,4 @@ if (!embeddedViewer) {
 }
 resizeField();
 refreshCollection();
+scheduleIdleLottery();

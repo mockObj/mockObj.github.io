@@ -59,16 +59,28 @@ test('the final blink covers the loading screen before revealing the scene, with
   const open = await pose(0);
   expect(open.upper).toBeLessThan(0);
   expect(open.lower).toBeGreaterThan(0);
-  const closed = await pose(105);
+  expect(await page.locator('#loading-screen').evaluate(screen => getComputedStyle(screen).animationDuration)).toBe('0.42s');
+  const closed = await pose(157.5);
   expect(closed.upper).toBeCloseTo(0, 1);
   expect(closed.lower).toBeCloseTo(0, 1);
   expect(closed.background).toBe('rgba(0, 0, 0, 0)');
   expect(closed.caption).toBe('hidden');
-  const reopening = await pose(190);
+  const reopening = await pose(285);
   expect(reopening.upper).toBeLessThan(0);
   expect(reopening.upper).toBeGreaterThan(open.upper);
   expect(reopening.lower).toBeGreaterThan(0);
   expect(reopening.lower).toBeLessThan(open.lower);
   expect([open.opacity, closed.opacity, reopening.opacity]).toEqual(['1', '1', '1']);
+  await expect(page.locator('#loading-test-status')).toHaveText('表示完了');
+});
+
+test('a longer blink parameter stays on screen for its complete duration', async ({ page }) => {
+  await page.goto('/content/me/loading-test/');
+  await page.locator('#loading-delay').selectOption('manual');
+  await page.evaluate(() => document.documentElement.style.setProperty('--blink-duration', '1.2s'));
+  await page.locator('#finish-loading').click();
+  await expect(page.locator('#loading-screen')).toHaveClass(/is-leaving/);
+  await page.waitForTimeout(700);
+  await expect(page.locator('#loading-screen')).toHaveCount(1);
   await expect(page.locator('#loading-test-status')).toHaveText('表示完了');
 });

@@ -24,7 +24,7 @@ export function createRandomField(items, seed = Math.random() * 0x100000000 >>> 
   }
   offsets.sort((a, b) => a[2] - b[2]);
   let stepX = count >= 9 ? 2 : 1, stepY = count >= 9 ? 5 : 1;
-  let bestDistance = 0, bestRank = Infinity;
+  let bestDistance = 0, bestVertical = 0, bestRank = Infinity;
   const consider = (x, y) => {
     if (!x || !y || gcd(gcd(x, y), count) !== 1) return;
     let distance = radius * radius + 1;
@@ -34,9 +34,17 @@ export function createRandomField(items, seed = Math.random() * 0x100000000 >>> 
       // those possible collisions too, rather than fixing repeats after drawing.
       if (Math.min(difference, count - difference) <= jitter) { distance = squared; break; }
     }
+    if (distance < bestDistance) return;
+    // Equal overall spacing can still stack one image every four rows.
+    // Prefer the lattice with the longest vertical repeat distance.
+    let vertical = 1;
+    for (; vertical < count; vertical++) {
+      const difference = modulo(y * vertical);
+      if (Math.min(difference, count - difference) <= jitter) break;
+    }
     const rank = hash(x, y, seed ^ 0x514e2a37);
-    if (distance > bestDistance || distance === bestDistance && rank < bestRank) {
-      stepX = x; stepY = y; bestDistance = distance; bestRank = rank;
+    if (distance > bestDistance || vertical > bestVertical || vertical === bestVertical && rank < bestRank) {
+      stepX = x; stepY = y; bestDistance = distance; bestVertical = vertical; bestRank = rank;
     }
   };
   if (count > 1) {
@@ -53,16 +61,27 @@ export function createRandomField(items, seed = Math.random() * 0x100000000 >>> 
     [order[end], order[other]] = [order[other], order[end]];
   }
   const phase = count ? hash(31, 71) % count : 0;
+  function itemAt(column, row) {
+    if (!count) return null;
+    // Coordinate noise breaks repeating tiles; spacing holds across every
+    // boundary and negative axis, independently of the order of queries.
+    const variation = jitter ? hash(column, row, seed ^ 0x6d2b79f5) & 1 : 0;
+    const variants = groups[order[modulo(column * stepX + row * stepY + phase + variation)]];
+    return variants[hash(column, row, seed ^ 0x7f4a7c15) % variants.length];
+  }
   return {
     uniqueCount: count,
-    chunkSize: Math.max(12, Math.ceil(Math.sqrt(count * 4))),
-    itemAt(column, row) {
-      if (!count) return null;
-      // Coordinate noise breaks repeating tiles; spacing holds across every
-      // boundary and negative axis, independently of the order of queries.
-      const variation = jitter ? hash(column, row, seed ^ 0x6d2b79f5) & 1 : 0;
-      const variants = groups[order[modulo(column * stepX + row * stepY + phase + variation)]];
-      return variants[hash(column, row, seed ^ 0x7f4a7c15) % variants.length];
+    itemAt,
+    replacementAt(column, row, overrides, random = Math.random) {
+      const excluded = new Set();
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const art = overrides.get(`${column + dx}:${row + dy}`) || itemAt(column + dx, row + dy);
+        if (art) excluded.add(art.imageGroup || art.image);
+      }
+      const candidates = groups.filter(group => !excluded.has(group[0].imageGroup || group[0].image));
+      if (!candidates.length) return null;
+      const variants = candidates[Math.floor(random() * candidates.length)];
+      return variants[Math.floor(random() * variants.length)];
     },
   };
 }
