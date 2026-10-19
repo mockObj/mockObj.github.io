@@ -32,6 +32,8 @@ npm run dev
 | `src/local/` | ローカル開発時だけ使える編集画面と下書きプレビュー |
 | `src/styles/viewer.css` / `editor.css` | 色、余白、レスポンシブ表示 |
 | `src/scripts/viewer.js` | ドラッグ、スクロール、目の追従 |
+| `src/scripts/viewer-settings.js` | 演出時間・頻度・視線追従・慣性・画像寸法の共通設定 |
+| `src/lib/viewer-styles.js` | 共通設定からCSS変数・まばたきのキーフレームをビルド時に生成 |
 | `src/scripts/loading-screen.js` | 本番・単体HTML・確認ページで共通のローディング完了処理 |
 | `src/local/loading-test.astro` | ローカル専用のローディング確認と操作パネル |
 | `src/scripts/random-field.js` | 重複を抑えたランダム配置、座標ごとの配置保持 |
@@ -50,19 +52,31 @@ npm run dev
 
 Astroコンポーネントは通常のマークアップで編集できます。大きなHTMLを埋め込んだiframeは使っていません。描画と編集のJavaScriptも用途ごとに分けています。`src/templates/viewer.html` はダウンロードする単体HTMLの外枠です。単体HTMLのJavaScriptとCSSには、サイト本体と同じソースをビルド時に取り込みます。
 
-スマホではアクセス直後から画面中央へ視線を向け、スワイプで目が中央を通り過ぎるにつれて向きが変わります。指を離して慣性で移動する間も中央を見続けます。次に触れると慣性が止まります。PCではカーソルへ視線を向けます。慣性の減速時間は `src/scripts/viewer.js` の `PAN_DECAY_MS` で調整できます。
+スマホではアクセス直後から画面中央へ視線を向け、スワイプで目が中央を通り過ぎるにつれて向きが変わります。指を離して慣性で移動する間も中央を見続けます。次に触れると慣性が止まります。PCではカーソルへ視線を向けます。演出や慣性の設定は `src/scripts/viewer-settings.js` にまとめています。CSS変数とまばたきのキーフレームは同じ設定からビルド時に生成し、公開画面・下書き・ローディング確認・単体HTMLで共有します。ブラウザの描画中に設定ファイルやスタイルシートを生成し直す処理はありません。
 
-画面端の目には、画像の中心へ一瞬視線を戻す動き、またはその画像と枠の範囲だけを上下の黒い幕で閉じ、別の画像に交換して開く動きが起こります。最初の1分は起こらず、その後は画面全体で平均3分に1回の確率です。PC・スマホとも抽選時点の画面サイズを使い、外周16%（短辺基準）に中心がある目から1つ選びます。交換先から現在の画像と周囲8マスの元画像を除外し、画面外の隣接マスや過去に交換した画像も確認します。交換先がない場合は視線の動きだけになります。動きを減らす設定や非表示タブでは抽選を止めます。
+画面端の目には、画像の中心へ一瞬視線を戻す動き、またはその画像と枠の範囲だけを上下の黒い幕で閉じ、別の画像に交換して開く動きが起こります。最初の1分は起こらず、その後は画面全体で平均30秒に1回、A/Bを抽選します。PC・スマホとも抽選時点の画面サイズを使い、外周16%（短辺基準）に中心がある目から1つ選びます。交換先から現在の画像と周囲8マスの元画像を除外し、画面外の隣接マスや過去に交換した画像も確認します。交換先がない場合は視線の動きだけになります。動きを減らす設定や非表示タブでは抽選を止めます。
 
-| 調整する値 | 場所・初期値 |
+`src/scripts/viewer-settings.js` の `VIEWER_SETTINGS` を編集します。時間はすべてミリ秒です。大きさ・間隔の倍率は `1` が現在の見た目です。`sizeScale` は四角だけ、`gapXScale`・`gapYScale` は横・縦の隙間だけを変えます。たとえば `sizeScale: 1.2` で四角を20%大きく、`gapXScale: .5` で横の隙間を半分にできます。隙間は `0` でなくなります。枠・画像・当たり判定・個別まばたきは同じ寸法を共有します。
+
+| 調整する値 | 設定・初期値 |
 | --- | --- |
-| 全体と個別のまばたき時間 | `src/styles/viewer.css` の `:root` にある `--blink-duration: 420ms`（従来の1.5倍） |
-| 動きを減らす設定での全体まばたき時間 | 同じ場所の `--blink-reduced-duration: 270ms` |
-| 最初の演出禁止時間 | `src/scripts/viewer.js` の `FIELD_IDLE.startDelayMs: 60000` |
-| 平均発生間隔 | `FIELD_IDLE.meanIntervalMs: 180000` |
-| 抽選間隔 | `FIELD_IDLE.checkIntervalMs: 10000`（抽選確率は抽選間隔÷平均発生間隔） |
-| 画面端とみなす幅 | `FIELD_IDLE.edgeBand: .16` |
-| 視線を戻して復帰するまでの時間 | `FIELD_IDLE.glanceMs: 240` |
+| 目の四角の大きさ | `geometry.sizeScale: 1` |
+| 横の隙間 | `geometry.gapXScale: 1` |
+| 縦の隙間 | `geometry.gapYScale: 1` |
+| サイズ算出の基準列数 | `geometry.columns: { mobile: 4.2, tablet: 6.4, desktop: 9.4 }` |
+| 幅による切り替え位置（CSS px） | `geometry.breakpoints: { tablet: 600, desktop: 1000 }` |
+| 倍率をかける前の基準セルの最小・最大（CSS px） | `geometry.minCellSize: 80` / `geometry.maxCellSize: 180` |
+| 全体と個別のまばたき時間 | `blink.durationMs: 420` |
+| 動きを減らす設定での全体まばたき時間 | `blink.reducedDurationMs: 270` |
+| 中央へ視線を向ける時間 | `glance.centerMs: 120`（以前は72） |
+| 中央で止める時間 | `glance.holdMs: 48` |
+| 元の視線へ戻す時間 | `glance.returnMs: 120`（維持） |
+| 最初の演出禁止時間 | `idle.startDelayMs: 60000` |
+| 平均発生間隔（A/B合計） | `idle.meanIntervalMs: 30000` |
+| 抽選間隔 | `idle.checkIntervalMs: 10000`（抽選確率は抽選間隔÷平均発生間隔） |
+| まばたきを選ぶ確率 | `idle.blinkProbability: .5` |
+| 画面端とみなす幅 | `idle.edgeBand: .16` |
+| 慣性の減速時間 | `pan.decayMs: 325` |
 
 ## 保存・DB
 

@@ -1,5 +1,5 @@
-/* Shared close/swap/open duration. Change this value to adjust both blinks. */
-:root{color-scheme:dark;--paper:#151515;--ink:#c7c7c7;--blink-duration:420ms;--blink-reduced-duration:270ms;font-family:Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif}
+/* Motion defaults and blink keyframes are generated from viewer-settings.js. */
+:root{color-scheme:dark;--paper:#151515;--ink:#c7c7c7;font-family:Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;overflow:clip;background:#111110;overscroll-behavior:none;overflow-anchor:none}
 body{position:fixed;inset:0}
@@ -13,18 +13,12 @@ body{position:fixed;inset:0}
 .is-leaving .loading-blink__upper{animation:loading-blink-upper var(--blink-duration) both;will-change:transform}
 .is-leaving .loading-blink__lower{animation:loading-blink-lower var(--blink-duration) both;will-change:transform}
 .loading-screen.is-leaving>.loader,.loading-screen.is-leaving>.loading-caption{animation:loading-blink-content var(--blink-duration) step-end both}
-/* Keep the close/hold/open proportions when the duration changes. At 420 ms,
-   close at 135 ms, swap at 150 ms, and reopen from 165 ms. */
-@keyframes loading-blink-upper{0%{transform:translateY(-100%);animation-timing-function:cubic-bezier(.35,0,.8,.45)}32.142857%,39.285714%{transform:translateY(0);animation-timing-function:cubic-bezier(.12,.6,.35,1)}100%{transform:translateY(-100%)}}
-@keyframes loading-blink-lower{0%{transform:translateY(100%);animation-timing-function:cubic-bezier(.35,0,.8,.45)}32.142857%,39.285714%{transform:translateY(0);animation-timing-function:cubic-bezier(.12,.6,.35,1)}100%{transform:translateY(100%)}}
-@keyframes loading-blink-surface{0%{background-color:#111110}35.714286%,100%{background-color:transparent}}
-@keyframes loading-blink-content{0%{visibility:visible}35.714286%,100%{visibility:hidden}}
-.loader{--duration:4s;display:inline-flex;gap:12px;color:#fff}
+.loader{--duration:var(--loader-cycle-duration);display:inline-flex;gap:12px;color:#fff}
 .loader__eye{position:relative;width:26px;height:22px}
 .loader__eye::before{content:"";position:absolute;bottom:0;left:6px;box-sizing:border-box;width:14px;height:22px;border:3px solid currentColor;border-top:0;border-radius:0 0 3px 3px;clip-path:var(--lid-clip,inset(3px 0 0));transition:clip-path var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)}
 .loader__eye::after{content:"";position:absolute;inset:0 0 auto;height:3px;border-radius:3px;background:currentColor;transform:var(--lid-transform,translateY(0));transition:transform var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)}
-.loader--auto .loader__eye::before{animation:sleepy-aperture var(--duration) linear .1s infinite both}
-.loader--auto .loader__eye::after{animation:sleepy-eyelid var(--duration) linear .1s infinite both}
+.loader--auto .loader__eye::before{animation:sleepy-aperture var(--duration) linear var(--loader-cycle-delay) infinite both}
+.loader--auto .loader__eye::after{animation:sleepy-eyelid var(--duration) linear var(--loader-cycle-delay) infinite both}
 .loading-caption{color:#aaa89f;font-size:10px;letter-spacing:.12em;opacity:.65}
 /* 1 second per full close, then an exponential slowdown after 75% if still
    waiting. Reopen gently on long loads; completion continues from this pose. */
@@ -74,4 +68,4 @@ button,a{-webkit-tap-highlight-color:transparent}
 .viewer-status:empty{display:none}
 .noscript{position:fixed;inset:40% 10% auto;color:#c5c2b8;text-align:center;font-size:14px}
 @media(max-width:600px){.field-chrome{inset:auto auto max(17px,env(safe-area-inset-bottom)) 18px;max-width:calc(100vw - 100px)}.edit-link{right:18px;bottom:max(15px,env(safe-area-inset-bottom));font-size:10px}.gesture-hint,.source-hint{font-size:9px}.viewer-status{left:18px;top:16px}.film-grain{display:none}}
-@media(prefers-reduced-motion:reduce){:root{--blink-duration:var(--blink-reduced-duration)}*,*::before,*::after{transition:none!important}.loader{--duration:6s}.loader__eye::before{transition:clip-path var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)!important}.loader__eye::after{transition:transform var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)!important}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}.loader__eye::before{transition:clip-path var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)!important}.loader__eye::after{transition:transform var(--lid-duration,0ms) cubic-bezier(.22,.22,.48,1)!important}}

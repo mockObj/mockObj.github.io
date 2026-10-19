@@ -35,7 +35,8 @@ async function openField(page: Page, fallback = false) {
 
 async function winLottery(page: Page, type: 'glance' | 'blink') {
   await page.evaluate(type => {
-    const draws = [0, 0, type === 'blink' ? 0 : .75, 0, 0];
+    // 1/4 succeeds at the new 10s / 30s rate, but not the former 10s / 180s.
+    const draws = [.25, 0, type === 'blink' ? 0 : .75, 0, 0];
     Math.random = () => draws.shift() ?? .99;
   }, type);
   await page.clock.runFor(49000);
@@ -56,7 +57,7 @@ async function winLottery(page: Page, type: 'glance' | 'blink') {
   return tile;
 }
 
-test('an edge eye briefly centers its image then returns to its original gaze', async ({ page }) => {
+test('an edge eye centers more slowly and returns at its original speed', async ({ page }) => {
   const errors = await openField(page);
   const tile = await winLottery(page, 'glance');
   const coordinate = await tile.evaluate(element => ({ column: (element as HTMLElement).dataset.column, row: (element as HTMLElement).dataset.row }));
@@ -69,8 +70,16 @@ test('an edge eye briefly centers its image then returns to its original gaze', 
   expect(before).toBeGreaterThan(3);
   const image = await tracked.getAttribute('data-image-id');
   await page.clock.runFor(96);
+  // Previously the image was fully centered by 72ms; it is still moving now.
+  expect(await displacement()).toBeGreaterThan(before * .03);
+  expect(await displacement()).toBeLessThan(before * .35);
+  await page.clock.runFor(48);
   expect(await displacement()).toBeLessThan(.1);
-  await page.clock.runFor(200);
+  await page.clock.runFor(84);
+  // Return starts at 168ms and still takes 120ms, as before.
+  expect(await displacement()).toBeGreaterThan(before * .25);
+  expect(await displacement()).toBeLessThan(before * .65);
+  await page.clock.runFor(80);
   expect(await displacement()).toBeCloseTo(before, 1);
   await expect(page.locator('[data-idle-effect]')).toHaveCount(0);
   await expect(tracked).toHaveAttribute('data-image-id', image!);

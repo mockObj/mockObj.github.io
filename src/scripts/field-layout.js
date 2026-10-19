@@ -1,9 +1,7 @@
+import { VIEWER_SETTINGS } from './viewer-settings.js';
+
 // Keep viewer, WebGL and editor crop geometry in agreement.
-export const FIELD_GEOMETRY = Object.freeze({
-  imageScale: 1,
-  previousArtFraction: .66,
-  artFraction: .66,
-});
+export const FIELD_GEOMETRY = VIEWER_SETTINGS.geometry;
 
 // Fixed depth variation follows world coordinates while scrolling.
 function fieldNoise(index, salt = 0) {
@@ -17,6 +15,6 @@ export function fieldAppearance(column, row = 0) {
   return {
     light: false,
     opacity: 1,
-    depth: (fieldNoise(position, 283) - .5) * 18,
+    depth: (fieldNoise(position, 283) - .5) * FIELD_GEOMETRY.depthRange,
   };
 }

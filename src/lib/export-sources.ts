@@ -2,6 +2,8 @@
 // ?raw is evaluated by Vite during the build; no source-file HTTP endpoint is needed.
 import template from '../templates/viewer.html?raw';
 import css from '../styles/viewer.css?raw';
+import settings from '../scripts/viewer-settings.js?raw';
+import { viewerAnimationCSS } from './viewer-styles.js';
 import graphics from '../scripts/eyes.js?raw';
 import layout from '../scripts/field-layout.js?raw';
 import renderer from '../scripts/field-gl.js?raw';
@@ -14,7 +16,8 @@ import loading from '../scripts/loading-screen.js?raw';
 
 export const exportSources = {
   'index.html': template,
-  'viewer.css': css,
+  'viewer.css': viewerAnimationCSS + '\n' + css,
+  'viewer-settings.js': settings,
   'assets/eyes.js': graphics,
   'field-layout.js': layout,
   'field-gl.js': renderer,

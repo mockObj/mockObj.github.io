@@ -4,30 +4,17 @@ import { FIELD_GEOMETRY, fieldAppearance } from './field-layout.js';
 import { EyeFieldGL } from './field-gl.js';
 import { createRandomField } from './random-field.js';
 import { createLoadingScreen } from './loading-screen.js';
+import { VIEWER_SETTINGS, GLANCE_DURATION_MS } from './viewer-settings.js';
 
 const FIELD_ART_FRACTION = FIELD_GEOMETRY.artFraction;
 // Keep surrounding source pixels available while a fixed window clips the image.
-const PHOTO_TEXTURE_SCALE = 1.5;
+const PHOTO_TEXTURE_SCALE = VIEWER_SETTINGS.geometry.textureScale;
 // Attraction translates the complete source image inside its stationary clip.
-const FIELD_ATTRACTION = Object.freeze({
-  clipTravel: .24,
-  maximumPixels: 32,
-  influenceRadius: .62,
-  nearStrength: .78,
-  distanceLimit: .32,
-  nearResponseMs: 105,
-  farResponseMs: 85,
-});
-const PAN_DECAY_MS = 325;
-const PAN_SAMPLE_MS = 100;
+const FIELD_ATTRACTION = VIEWER_SETTINGS.attraction;
+const PAN_DECAY_MS = VIEWER_SETTINGS.pan.decayMs;
+const PAN_SAMPLE_MS = VIEWER_SETTINGS.pan.sampleMs;
 // One lottery for the entire field, independent of the number of visible eyes.
-const FIELD_IDLE = Object.freeze({
-  startDelayMs: 60000,
-  checkIntervalMs: 10000,
-  meanIntervalMs: 180000,
-  edgeBand: .16,
-  glanceMs: 240,
-});
+const FIELD_IDLE = VIEWER_SETTINGS.idle;
 
 const field = document.getElementById('field');
 const tileLayer = document.getElementById('tiles');
@@ -53,6 +40,8 @@ let randomField = createRandomField([], fieldSeed);
 let contentVersion = 0;
 let pool = [];
 let cellSize = 150;
+let pitchX = 150;
+let pitchY = 150;
 let fieldWidth = 0;
 let fieldHeight = 0;
 let poolColumns = 0;
@@ -123,7 +112,7 @@ function drawIdleLottery(time) {
   });
   if (!candidates.length) return;
   const node = candidates[Math.floor(Math.random() * candidates.length)];
-  const blink = requested ? requested === 'blink' : Math.random() < .5;
+  const blink = requested ? requested === 'blink' : Math.random() < FIELD_IDLE.blinkProbability;
   let replacement = null;
   if (blink) {
     replacement = randomField.replacementAt(Number(node.tile.dataset.column), Number(node.tile.dataset.row), artworkOverrides);
@@ -131,7 +120,7 @@ function drawIdleLottery(time) {
     if (replacement) ensureTexture(`${activeCollection.items.length ? 'item' : 'preset'}:${replacement.id}`, replacement);
   }
   const type = replacement ? 'blink' : 'glance';
-  idleEffect = { node, identity: node.identity, type, replacement, start: replacement ? null : time, swapped: false, overlay: null, animations: [], duration: FIELD_IDLE.glanceMs, debug: Boolean(requested) };
+  idleEffect = { node, identity: node.identity, type, replacement, start: replacement ? null : time, swapped: false, overlay: null, animations: [], duration: GLANCE_DURATION_MS, debug: Boolean(requested) };
   node.tile.dataset.idleEffect = idleEffect.type;
   if (requested) debugStatus.textContent = `${node.tile.dataset.title || '目'}：${type === 'blink' ? '個別まばたき・画像交換' : '視線を戻す'}`;
   requestFrame();
@@ -157,7 +146,7 @@ function updateIdleEffect(time) {
     effect.start = time;
   }
   let elapsed = time - effect.start;
-  const swapAt = effect.duration * (100 / 280);
+  const swapAt = effect.duration * VIEWER_SETTINGS.blink.swapAt;
   if (effect.type === 'blink' && !effect.swapped && elapsed >= swapAt) {
     // A missed frame must still show a fully closed pose during the swap.
     effect.start += elapsed - swapAt;
@@ -188,7 +177,7 @@ function readyToReveal() {
 
 function hideGestureHint() {
   clearTimeout(hintTimer);
-  hintTimer = setTimeout(() => gestureHint.classList.add('is-hidden'), 1400);
+  hintTimer = setTimeout(() => gestureHint.classList.add('is-hidden'), VIEWER_SETTINGS.pan.hintDelayMs);
 }
 
 function showSource(tile) {
@@ -202,35 +191,39 @@ function showSource(tile) {
 
 function resizeField() {
   const previousSize = cellSize;
+  const previousPitchX = pitchX, previousPitchY = pitchY;
   const width = Math.max(1, field.clientWidth);
   const height = Math.max(1, field.clientHeight);
   if (width === fieldWidth && height === fieldHeight) return;
   fieldWidth = width;
   fieldHeight = height;
-  const visibleColumns = fieldWidth < 600 ? 4.2 : fieldWidth < 1000 ? 6.4 : 9.4;
-  const referenceCellSize = Math.round(clampValue(fieldWidth / visibleColumns, 80, 180));
-  // Keep image size and grid pitch at the original scale.
-  cellSize = Math.round(referenceCellSize * FIELD_GEOMETRY.imageScale * FIELD_GEOMETRY.previousArtFraction / FIELD_ART_FRACTION);
+  const { columns, breakpoints, minCellSize, maxCellSize, sizeScale, gapXScale, gapYScale } = FIELD_GEOMETRY;
+  const visibleColumns = fieldWidth < breakpoints.tablet ? columns.mobile : fieldWidth < breakpoints.desktop ? columns.tablet : columns.desktop;
+  const referenceCellSize = Math.round(clampValue(fieldWidth / visibleColumns, minCellSize, maxCellSize));
+  // Frame size and the empty space between frames scale independently.
+  cellSize = referenceCellSize * sizeScale;
+  pitchX = referenceCellSize * (FIELD_ART_FRACTION * sizeScale + (1 - FIELD_ART_FRACTION) * gapXScale);
+  pitchY = referenceCellSize * (FIELD_ART_FRACTION * sizeScale + (1 - FIELD_ART_FRACTION) * gapYScale);
   const shortViewport = Math.min(fieldWidth, fieldHeight);
   maximumShift = Math.min(cellSize * FIELD_ART_FRACTION * FIELD_ATTRACTION.clipTravel, FIELD_ATTRACTION.maximumPixels);
   influenceRadius = Math.max(1, shortViewport * FIELD_ATTRACTION.influenceRadius);
   tileLayer.style.setProperty('--eye-inset', `${((1 - FIELD_ART_FRACTION) * 50).toFixed(3)}%`);
   tileLayer.style.setProperty('--eye-focal', `${Math.max(fieldWidth, fieldHeight) * 1.7}px`);
   if (camera.initialized) {
-    camera.x *= cellSize / previousSize;
-    camera.y *= cellSize / previousSize;
+    camera.x *= pitchX / previousPitchX;
+    camera.y *= pitchY / previousPitchY;
     if (dragState) {
       const last = dragState.samples[dragState.samples.length - 1];
       dragState.cameraX = camera.x - (last.x - dragState.originX);
       dragState.cameraY = camera.y - (last.y - dragState.originY);
     }
   } else {
-    camera.x = -cellSize * .29;
-    camera.y = -cellSize * .34;
+    camera.x = -pitchX * .29;
+    camera.y = -pitchY * .34;
     camera.initialized = true;
   }
-  poolColumns = Math.ceil(fieldWidth / cellSize) + poolMargin * 2 + 1;
-  poolRows = Math.ceil(fieldHeight / cellSize) + poolMargin * 2 + 1;
+  poolColumns = Math.ceil(fieldWidth / pitchX) + poolMargin * 2 + 1;
+  poolRows = Math.ceil(fieldHeight / pitchY) + poolMargin * 2 + 1;
   const count = poolColumns * poolRows;
   while (pool.length < count) {
     const tile = document.createElement('a');
@@ -437,11 +430,12 @@ function drawFrame(time) {
     if (Math.abs(camera.vy) < .002) camera.vy = 0;
     moving = camera.vx !== 0 || camera.vy !== 0;
   }
-  const firstColumn = Math.floor(-camera.x / cellSize) - poolMargin;
-  const firstRow = Math.floor(-camera.y / cellSize) - poolMargin;
+  const firstColumn = Math.floor(-camera.x / pitchX) - poolMargin;
+  const firstRow = Math.floor(-camera.y / pitchY) - poolMargin;
+  const offsetX = (pitchX - cellSize) / 2, offsetY = (pitchY - cellSize) / 2;
   // One compositor transform pans all hit targets. Keep local coordinates near
   // the viewport so an unbounded world never creates an enormous DOM layer.
-  tileLayer.style.transform = `translate3d(${(camera.x + firstColumn * cellSize).toFixed(3)}px,${(camera.y + firstRow * cellSize).toFixed(3)}px,0)`;
+  tileLayer.style.transform = `translate3d(${(camera.x + firstColumn * pitchX).toFixed(3)}px,${(camera.y + firstRow * pitchY).toFixed(3)}px,0)`;
   const renderTiles = [];
   const gpuAvailable = Boolean(fieldRenderer?.valid);
   sceneCanvas.hidden = !gpuAvailable;
@@ -452,8 +446,8 @@ function drawFrame(time) {
       const worldColumn = firstColumn + column;
       const worldRow = firstRow + row;
       const node = pool[modulo(worldRow, poolRows) * poolColumns + modulo(worldColumn, poolColumns)];
-      const x = camera.x + worldColumn * cellSize;
-      const y = camera.y + worldRow * cellSize;
+      const x = camera.x + worldColumn * pitchX + offsetX;
+      const y = camera.y + worldRow * pitchY + offsetY;
       const previousIdentity = node.identity;
       bindTile(node, worldColumn, worldRow);
       let targetX = 0;
@@ -491,8 +485,10 @@ function drawFrame(time) {
       if (Math.abs(targetX - node.dx) > .015 || Math.abs(targetY - node.dy) > .015) moving = true;
       let gazeScale = 1;
       if (idleEffect?.node === node && idleEffect.type === 'glance') {
-        const progress = clampValue((time - idleEffect.start) / FIELD_IDLE.glanceMs, 0, 1);
-        const amount = progress < .3 ? progress / .3 : progress < .5 ? 1 : (1 - progress) / .5;
+        const elapsed = time - idleEffect.start;
+        const { centerMs, holdMs, returnMs } = VIEWER_SETTINGS.glance;
+        const amount = clampValue(elapsed < centerMs ? elapsed / centerMs
+          : elapsed < centerMs + holdMs ? 1 : 1 - (elapsed - centerMs - holdMs) / returnMs, 0, 1);
         gazeScale = 1 - amount * amount * (3 - 2 * amount);
       }
       const imageX = node.dx * gazeScale;
@@ -504,7 +500,7 @@ function drawFrame(time) {
       const centerY = screenY + cellSize / 2;
       const boundsRadius = cellSize * .5 + Math.abs(depth) + 8;
       const visible = centerX + boundsRadius > 0 && centerY + boundsRadius > 0 && centerX - boundsRadius < fieldWidth && centerY - boundsRadius < fieldHeight;
-      const position = `translate3d(${column * cellSize}px,${row * cellSize}px,0)`;
+      const position = `translate3d(${column * pitchX + offsetX}px,${row * pitchY + offsetY}px,0)`;
       if (node.position !== position) { node.position = position; node.tile.style.transform = position; }
       const plane = `translateZ(${depth.toFixed(2)}px)`;
       if (node.plane !== plane) { node.plane = plane; node.tile.style.setProperty('--plane-transform', plane); }
@@ -666,7 +662,7 @@ field.addEventListener('keydown', event => {
   const direction = directions[event.key];
   if (direction) {
     event.preventDefault();
-    if (reduceMotion.matches) { camera.x += direction[0] * cellSize; camera.y += direction[1] * cellSize; }
+    if (reduceMotion.matches) { camera.x += direction[0] * pitchX; camera.y += direction[1] * pitchY; }
     else { camera.vx = clampValue(camera.vx + direction[0] * .8, -4, 4); camera.vy = clampValue(camera.vy + direction[1] * .8, -4, 4); }
     hideGestureHint(); requestFrame();
   }

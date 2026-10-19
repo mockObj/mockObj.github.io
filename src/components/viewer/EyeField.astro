@@ -1,7 +1,9 @@
 ---
 import '../../styles/viewer.css';
 import LoadingEye from './LoadingEye.astro';
+import { viewerAnimationCSS } from '../../lib/viewer-styles.js';
 ---
+<style is:inline set:html={viewerAnimationCSS} />
 <LoadingEye />
 <main id="field" aria-label="目の空間。ドラッグ、スクロール、矢印キーで移動できます。" aria-busy="true" tabindex="0">
   <canvas id="scene" aria-hidden="true"></canvas>

@@ -103,6 +103,8 @@ test('image edits persist as binary assets, preview stays separate, ZIP round-tr
   await expect(standalone.locator('#viewer-status')).toBeEmpty();
   await expect(standalone.locator('#field-debug')).toHaveCount(0);
   await expect(standalone.locator('#tiles [data-kind="item"]').first()).toBeAttached();
+  await expect(standalone.locator('#loading-screen')).toHaveCount(0, { timeout: 10000 });
+  expect(await standalone.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--blink-duration').trim())).toBe('420ms');
   await expect(standalone.locator('#tiles [data-kind="preset"]')).toHaveCount(0);
   expect(requests).toEqual([]);
 

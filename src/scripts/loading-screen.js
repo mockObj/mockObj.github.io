@@ -1,5 +1,8 @@
+import { VIEWER_SETTINGS } from './viewer-settings.js';
+
 // The public viewer, standalone export and local preview use this controller.
 export function createLoadingScreen(screen, { onDismiss = () => {}, onStateChange = (_state) => {} } = {}) {
+  const settings = VIEWER_SETTINGS.loading;
   const startedAt = performance.now();
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const timers = new Set();
@@ -41,7 +44,7 @@ export function createLoadingScreen(screen, { onDismiss = () => {}, onStateChang
     screen.addEventListener('animationend', blinkEnded);
     // Follow the configured CSS duration, including values expressed in seconds.
     const duration = getComputedStyle(screen).animationDuration;
-    later(remove, parseFloat(duration) * (duration.endsWith('ms') ? 1 : 1000) + 170);
+    later(remove, parseFloat(duration) * (duration.endsWith('ms') ? 1 : 1000) + settings.removalPaddingMs);
   }
   function finish() {
     if (disposed || ready) return;
@@ -51,7 +54,7 @@ export function createLoadingScreen(screen, { onDismiss = () => {}, onStateChang
     const eyes = screen.querySelector('.loader');
     if (!eyes) { dismiss(); return; }
     // Cached loads need no ceremonial blink or extra second of waiting.
-    if (performance.now() - startedAt < 160) {
+    if (performance.now() - startedAt < settings.cachedThresholdMs) {
       dismiss();
       return;
     }
@@ -59,7 +62,8 @@ export function createLoadingScreen(screen, { onDismiss = () => {}, onStateChang
     const eye = eyes.querySelector('.loader__eye');
     const transform = getComputedStyle(eye, '::after').transform;
     const closed = Math.min(1, Math.max(0, transform === 'none' ? 0 : new DOMMatrixReadOnly(transform).m42 / 16));
-    const duration = Math.max(180, (1 - closed) * 1000 * (motion.matches ? 1.5 : 1) * 1.15 + 60);
+    const motionScale = motion.matches ? settings.reducedCycleMs / settings.cycleMs : 1;
+    const duration = Math.max(settings.minimumFinishMs, (1 - closed) * settings.closeMs * motionScale * settings.finishScale + settings.finishOffsetMs);
     eyes.style.setProperty('--lid-duration', '0ms');
     eyes.style.setProperty('--lid-transform', transform);
     eyes.style.setProperty('--lid-clip', getComputedStyle(eye, '::before').clipPath);
@@ -69,7 +73,7 @@ export function createLoadingScreen(screen, { onDismiss = () => {}, onStateChang
       eyes.style.setProperty('--lid-duration', `${duration}ms`);
       eyes.style.setProperty('--lid-transform', 'translateY(16px)');
       eyes.style.setProperty('--lid-clip', 'inset(19px 0 0)');
-      later(dismiss, duration + 80);
+      later(dismiss, duration + settings.finishPauseMs);
     });
   }
   state('loading');

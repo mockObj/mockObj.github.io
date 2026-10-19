@@ -1,3 +1,6 @@
+---
+import { VIEWER_SETTINGS } from '../../scripts/viewer-settings.js';
+---
 <footer class="field-chrome">
   <p class="gesture-hint" id="gesture-hint"><span aria-hidden="true">↔</span> drag / scroll</p>
   <p class="source-hint" id="source-hint" aria-live="polite"></p>
@@ -6,7 +9,7 @@
 {import.meta.env.DEV && <details id="field-debug" class="field-debug">
   <summary>動作確認</summary>
   <div class="field-debug__controls">
-    <label>まばたき時間 <input id="debug-blink-duration" type="number" min="60" max="10000" step="10" value="420" /> ms</label>
+    <label>まばたき時間 <input id="debug-blink-duration" type="number" min="60" max="10000" step="10" value={VIEWER_SETTINGS.blink.durationMs} /> ms</label>
     <div class="field-debug__buttons">
       <button type="button" data-effect="glance">A：視線を戻す</button>
       <button type="button" data-effect="blink">B：まばたき・交換</button>
