@@ -99,7 +99,8 @@ void main() {
   vec4 source = texture2D(uTexture, clamp(sourceUv, vec2(0.0), vec2(1.0)));
   float inside = step(0.0, sourceUv.x) * step(sourceUv.x, 1.0) * step(0.0, sourceUv.y) * step(sourceUv.y, 1.0);
   vec2 rounded = abs(vUv - .5) * 2.0;
-  float outline = pow(pow(rounded.x, 4.0) + pow(rounded.y, 4.0), .25);
+  vec2 squared = rounded * rounded;
+  float outline = sqrt(sqrt(dot(squared, squared)));
   float photoAlpha = 1.0 - smoothstep(.72, 1.0, outline);
   // Preserve source RGB; only the fixed photo aperture changes transparency.
   float aperture = uSymbol > .5 ? 1.0 : photoAlpha;
@@ -185,19 +186,16 @@ void main() {
     gl.uniform2f(u.uViewport, width, height); gl.uniform1f(u.uFocal, Math.max(width, height) * 1.7);
     gl.activeTexture(gl.TEXTURE0); gl.uniform1i(u.uTexture, 0);
     const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
-    const visible = (tiles || []).filter(tile => {
-      if (!(tile.size > 0)) return false;
+    // Cull in place instead of allocating a second visible array each frame.
+    for (const tile of tiles || []) {
+      if (!(tile.size > 0)) continue;
       const centerX = tile.x + tile.size * .5;
       const centerY = tile.y + tile.size * .5;
       const radius = number(tile.boundsRadius) || tile.size * .5 + Math.abs(number(tile.depth)) + 8;
-      return centerX + radius > 0 && centerY + radius > 0 && centerX - radius < width && centerY - radius < height;
-    });
-    const draw = tile => {
+      if (centerX + radius <= 0 || centerY + radius <= 0 || centerX - radius >= width || centerY - radius >= height) continue;
       const texture = this._textures.get(tile.textureKey)?.texture;
-      if (!texture) return;
+      if (!texture) continue;
       const side = tile.size * FIELD_GEOMETRY.artFraction;
-      const centerX = tile.x + tile.size * .5;
-      const centerY = tile.y + tile.size * .5;
       const crop = tile.crop?.length === 4 ? tile.crop : [.5, .5, 1, 1];
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform2f(u.uCenter, centerX, centerY); gl.uniform1f(u.uSide, side);
@@ -205,9 +203,7 @@ void main() {
       gl.uniform4f(u.uCrop, crop[0], crop[1], crop[2], crop[3]);
       gl.uniform2f(u.uImageShift, number(tile.imageX) / side, number(tile.imageY) / side);
       gl.uniform1f(u.uSymbol, tile.symbol ? 1 : 0); gl.drawArrays(gl.TRIANGLES, 0, 6);
-    };
-    // Each clip stays on its grid cell; only source UVs move inside it.
-    for (const tile of visible) draw(tile);
+    }
     return true;
   }
 

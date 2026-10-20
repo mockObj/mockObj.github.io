@@ -9,6 +9,8 @@ import { VIEWER_SETTINGS, GLANCE_DURATION_MS } from './viewer-settings.js';
 const FIELD_ART_FRACTION = FIELD_GEOMETRY.artFraction;
 // Keep surrounding source pixels available while a fixed window clips the image.
 const PHOTO_TEXTURE_SCALE = VIEWER_SETTINGS.geometry.textureScale;
+const PHOTO_CROP = [.5, .5, 1 / PHOTO_TEXTURE_SCALE, 1 / PHOTO_TEXTURE_SCALE];
+const SYMBOL_CROP = [.5, .5, 1, 1];
 // Attraction translates the complete source image inside its stationary clip.
 const FIELD_ATTRACTION = VIEWER_SETTINGS.attraction;
 const PAN_DECAY_MS = VIEWER_SETTINGS.pan.decayMs;
@@ -100,15 +102,20 @@ function drawIdleLottery(time) {
   if (idleEffect || !collectionReady || loadingScreen?.isConnected || (!requested && (reduceMotion.matches
       || time < idleEligibleAt || Math.random() >= FIELD_IDLE.checkIntervalMs / FIELD_IDLE.meanIntervalMs))) return;
   const band = Math.min(fieldWidth, fieldHeight) * FIELD_IDLE.edgeBand;
+  const focal = Math.max(fieldWidth, fieldHeight) * 1.7;
   const occluded = debugPanel?.open ? debugPanel.getBoundingClientRect() : null;
   const candidates = pool.filter(node => {
     if (!node.art || node.visibility !== 'visible' || node.tile === document.activeElement || node.tile === dragState?.tile) return false;
     const x = node.tile._screenX + cellSize / 2;
     const y = node.tile._screenY + cellSize / 2;
-    if (occluded && x >= occluded.left && x <= occluded.right && y >= occluded.top && y <= occluded.bottom) return false;
-    // Centers must be on screen, within the outer band at the time of the draw.
-    return x >= 0 && x <= fieldWidth && y >= 0 && y <= fieldHeight
-      && Math.min(x, fieldWidth - x, y, fieldHeight - y) <= band;
+    const depth = reduceMotion.matches ? 0 : node.appearance.depth;
+    const radius = cellSize * FIELD_ART_FRACTION * .5 * focal / (focal - depth);
+    const left = Math.max(0, x - radius), right = Math.min(fieldWidth, x + radius);
+    const top = Math.max(0, y - radius), bottom = Math.min(fieldHeight, y + radius);
+    // Use the visible artwork frame, including partly clipped mobile edge eyes.
+    if (right <= left || bottom <= top) return false;
+    if (occluded && right > occluded.left && left < occluded.right && bottom > occluded.top && top < occluded.bottom) return false;
+    return Math.min(left, fieldWidth - right, top, fieldHeight - bottom) <= band;
   });
   if (!candidates.length) return;
   const node = candidates[Math.floor(Math.random() * candidates.length)];
@@ -337,11 +344,17 @@ function pumpArtwork() {
 }
 
 function bindTile(node, column, row) {
+  // Most animation frames retain these coordinates. Avoid allocating a world
+  // key and identity string for every pooled tile on every frame.
+  if (node.identity && node.column === column && node.row === row && node.version === contentVersion) return;
   const override = artworkOverrides.get(`${column}:${row}`);
   const identity = `${contentVersion}:${column}:${row}:${override?.id || ''}`;
   if (node.identity === identity) return;
   if (idleEffect?.node === node && node.identity !== '') endIdleEffect();
   node.identity = identity;
+  node.column = column;
+  node.row = row;
+  node.version = contentVersion;
   const art = collectionReady ? override || randomField.itemAt(column, row) : null;
   const item = activeCollection.items.length > 0 ? art : null;
   const appearance = fieldAppearance(column, row);
@@ -375,12 +388,18 @@ function bindTile(node, column, row) {
     node.tile.setAttribute('aria-hidden', 'true');
     node.tile.removeAttribute('aria-label');
   }
-  if (!art) {
-    node.surface.replaceChildren();
-    node.content = null;
-    node.geometry = null;
-    return;
-  }
+  if (node.content) node.surface.replaceChildren();
+  node.content = null;
+  node.geometry = null;
+  node.fallbackReady = false;
+}
+
+function ensureFallbackArtwork(node) {
+  if (node.fallbackReady || !node.art) return;
+  // Failed images also count as attempted; never retry them every frame.
+  node.fallbackReady = true;
+  node.imagePosition = '';
+  const { art, appearance, identity } = node;
   if (art.symbol) {
     node.surface.innerHTML = eyeMarkup(art.id, appearance.light);
     node.content = node.surface.firstElementChild;
@@ -399,7 +418,7 @@ function bindTile(node, column, row) {
     image.onerror = () => {
       if (node.identity !== identity) return;
       node.surface.classList.remove('is-photo');
-      if (item) node.surface.replaceChildren();
+      if (activeCollection.items.length) node.surface.replaceChildren();
       else node.surface.innerHTML = eyeMarkup('sheikah', appearance.light);
       node.content = node.surface.firstElementChild;
       node.geometry = { x: 0, y: 0 };
@@ -407,7 +426,7 @@ function bindTile(node, column, row) {
       requestFrame();
     };
     node.surface.replaceChildren(image);
-    // The shared artwork job handles decoding. Only the DOM fallback needs src.
+    image.src = art.image;
   }
 }
 
@@ -435,11 +454,14 @@ function drawFrame(time) {
   const offsetX = (pitchX - cellSize) / 2, offsetY = (pitchY - cellSize) / 2;
   // One compositor transform pans all hit targets. Keep local coordinates near
   // the viewport so an unbounded world never creates an enormous DOM layer.
-  tileLayer.style.transform = `translate3d(${(camera.x + firstColumn * pitchX).toFixed(3)}px,${(camera.y + firstRow * pitchY).toFixed(3)}px,0)`;
+  const panTransform = `translate3d(${(camera.x + firstColumn * pitchX).toFixed(3)}px,${(camera.y + firstRow * pitchY).toFixed(3)}px,0)`;
+  if (tileLayer.style.transform !== panTransform) tileLayer.style.transform = panTransform;
   const renderTiles = [];
   const gpuAvailable = Boolean(fieldRenderer?.valid);
-  sceneCanvas.hidden = !gpuAvailable;
-  const neededArtwork = [];
+  if (sceneCanvas.hidden === gpuAvailable) sceneCanvas.hidden = !gpuAvailable;
+  const neededArtwork = loadingScreen?.isConnected ? [] : null;
+  const focusedTile = document.activeElement;
+  const reducedMotion = reduceMotion.matches;
 
   for (let row = 0; row < poolRows; row++) {
     for (let column = 0; column < poolColumns; column++) {
@@ -469,7 +491,7 @@ function drawFrame(time) {
         targetY = dy / Math.max(distance, 1) * amplitude;
       }
       const responseMs = FIELD_ATTRACTION.nearResponseMs + distanceWeight * (FIELD_ATTRACTION.farResponseMs - FIELD_ATTRACTION.nearResponseMs);
-      const ease = reduceMotion.matches ? 1 : 1 - Math.exp(-dt / responseMs);
+      const ease = reducedMotion ? 1 : 1 - Math.exp(-dt / responseMs);
       if (node.identity !== previousIdentity) {
         node.dx = targetX; node.dy = targetY;
       } else {
@@ -493,7 +515,7 @@ function drawFrame(time) {
       }
       const imageX = node.dx * gazeScale;
       const imageY = node.dy * gazeScale;
-      const depth = reduceMotion.matches ? 0 : node.appearance.depth;
+      const depth = reducedMotion ? 0 : node.appearance.depth;
       const screenX = x;
       const screenY = y;
       const centerX = screenX + cellSize / 2;
@@ -504,7 +526,7 @@ function drawFrame(time) {
       if (node.position !== position) { node.position = position; node.tile.style.transform = position; }
       const plane = `translateZ(${depth.toFixed(2)}px)`;
       if (node.plane !== plane) { node.plane = plane; node.tile.style.setProperty('--plane-transform', plane); }
-      const visibility = visible || node.tile === document.activeElement ? 'visible' : 'hidden';
+      const visibility = visible || node.tile === focusedTile ? 'visible' : 'hidden';
       if (node.visibility !== visibility) { node.visibility = visibility; node.tile.style.visibility = visibility; }
       node.tile._screenX = screenX;
       node.tile._screenY = screenY;
@@ -512,11 +534,18 @@ function drawFrame(time) {
       node.tile._imageX = imageX;
       node.tile._imageY = imageY;
       const record = visible && node.art ? ensureTexture(node.textureKey, node.art) : null;
-      if (record) neededArtwork.push(record);
+      if (record && neededArtwork) neededArtwork.push(record);
       const textureReady = gpuAvailable && fieldRenderer.hasTexture(node.textureKey);
       if (node.gpu !== textureReady) { node.gpu = textureReady; node.tile.classList.toggle('is-gpu', textureReady); }
-      if (textureReady && node.content?.tagName === 'IMG' && node.content.hasAttribute('src')) node.content.removeAttribute('src');
-      if (visible && node.content?.tagName === 'IMG' && record && ['ready', 'error'].includes(record.phase) && (!gpuAvailable || record.dom) && node.content.getAttribute('src') !== node.art.image) node.content.src = node.art.image;
+      // GPU rendering needs no duplicate DOM image. Create fallback artwork only
+      // when needed, including after context loss, and release it on recovery.
+      if (textureReady && node.fallbackReady) {
+        node.surface.replaceChildren();
+        node.content = null;
+        node.geometry = null;
+        node.fallbackReady = false;
+      }
+      if (!textureReady && visible && record && (record.phase === 'ready' || record.phase === 'error') && (!gpuAvailable || record.dom)) ensureFallbackArtwork(node);
       if (!textureReady && node.content && node.geometry && visible) {
         const imagePosition = `translate3d(${(node.geometry.x + imageX).toFixed(3)}px,${(node.geometry.y + imageY).toFixed(3)}px,0)`;
         if (node.imagePosition !== imagePosition) { node.imagePosition = imagePosition; node.content.style.transform = imagePosition; }
@@ -525,13 +554,14 @@ function drawFrame(time) {
       const order = String((textureReady ? 0 : pool.length) + row * poolColumns + column);
       if (node.order !== order) { node.order = order; node.tile.style.zIndex = order; }
       if (textureReady && visible) {
-        renderTiles.push({
-          x, y, size: cellSize, textureKey: node.textureKey,
-          imageX, imageY, tiltX: 0, tiltY: 0, boundsRadius,
-          ...node.appearance, depth,
-          crop: node.art.symbol ? [.5, .5, 1, 1] : [.5, .5, 1 / PHOTO_TEXTURE_SCALE, 1 / PHOTO_TEXTURE_SCALE],
-          symbol: Boolean(node.art.symbol),
-        });
+        const render = node.render || (node.render = {});
+        render.x = x; render.y = y; render.size = cellSize;
+        render.textureKey = node.textureKey;
+        render.imageX = imageX; render.imageY = imageY;
+        render.boundsRadius = boundsRadius; render.depth = depth;
+        render.symbol = Boolean(node.art.symbol);
+        render.crop = render.symbol ? SYMBOL_CROP : PHOTO_CROP;
+        renderTiles.push(render);
       }
     }
   }
@@ -540,7 +570,7 @@ function drawFrame(time) {
     panX: camera.x, panY: camera.y,
     time, reduceMotion: reduceMotion.matches,
   });
-  if (collectionReady && neededArtwork.length && neededArtwork.every(record => ['ready', 'error'].includes(record.phase))) readyToReveal();
+  if (collectionReady && neededArtwork?.length && neededArtwork.every(record => record.phase === 'ready' || record.phase === 'error')) readyToReveal();
   drawIdleLottery(time);
   if (moving || (idleEffect && idleEffect.start !== null)) requestFrame();
   else lastFrame = 0;

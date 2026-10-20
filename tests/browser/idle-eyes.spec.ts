@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import sharp from 'sharp';
+import { VIEWER_SETTINGS } from '../../src/scripts/viewer-settings.js';
 
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
@@ -9,6 +10,16 @@ async function openField(page: Page, fallback = false) {
   const manifests: string[] = [];
   page.on('request', request => { if (new URL(request.url()).pathname.endsWith('/viewer.json')) manifests.push(request.url()); });
   await page.clock.install({ time: new Date('2026-10-20T00:00:00Z') });
+  await page.addInitScript(() => { Math.random = () => .99; });
+  // Keep the lottery guard deterministic while the owner tunes live frequency.
+  await page.route('**/src/scripts/viewer-settings.js*', async route => {
+    const response = await route.fetch();
+    let source = await response.text();
+    for (const [key, value] of Object.entries({ startDelayMs: 60000, checkIntervalMs: 10000, meanIntervalMs: 30000 })) {
+      source = source.replace(new RegExp(`\\b${key}:\\s*[\\d.]+,`), `${key}: ${value},`);
+    }
+    await route.fulfill({ response, body: source });
+  });
   if (fallback) await page.addInitScript(() => {
     const original = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...args: any[]) {
@@ -35,7 +46,7 @@ async function openField(page: Page, fallback = false) {
 
 async function winLottery(page: Page, type: 'glance' | 'blink') {
   await page.evaluate(type => {
-    // 1/4 succeeds at the new 10s / 30s rate, but not the former 10s / 180s.
+    // 1/4 succeeds at the fixture's 10s / 30s rate.
     const draws = [.25, 0, type === 'blink' ? 0 : .75, 0, 0];
     Math.random = () => draws.shift() ?? .99;
   }, type);
@@ -48,12 +59,15 @@ async function winLottery(page: Page, type: 'glance' | 'blink') {
   }
   const tile = page.locator(`[data-idle-effect="${type}"]`);
   await expect(tile).toHaveCount(1);
-  const position = await tile.evaluate(element => {
-    const tile = element as HTMLElement & { _screenX: number; _screenY: number };
-    const size = parseFloat(tile.style.width);
-    return { x: tile._screenX + size / 2, y: tile._screenY + size / 2 };
+  const position = await tile.locator('.eye-hit').evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
   });
-  expect(Math.min(position.x, 390 - position.x, position.y, 844 - position.y)).toBeLessThanOrEqual(390 * .16);
+  expect(position.right).toBeGreaterThan(0);
+  expect(position.left).toBeLessThan(390);
+  expect(position.bottom).toBeGreaterThan(0);
+  expect(position.top).toBeLessThan(844);
+  expect(Math.min(position.left, 390 - position.right, position.top, 844 - position.bottom)).toBeLessThanOrEqual(390 * VIEWER_SETTINGS.idle.edgeBand);
   return tile;
 }
 
@@ -69,17 +83,18 @@ test('an edge eye centers more slowly and returns at its original speed', async 
   const before = await displacement();
   expect(before).toBeGreaterThan(3);
   const image = await tracked.getAttribute('data-image-id');
-  await page.clock.runFor(96);
-  // Previously the image was fully centered by 72ms; it is still moving now.
-  expect(await displacement()).toBeGreaterThan(before * .03);
-  expect(await displacement()).toBeLessThan(before * .35);
-  await page.clock.runFor(48);
+  const { centerMs, holdMs, returnMs } = VIEWER_SETTINGS.glance;
+  await page.clock.runFor(centerMs / 2);
+  expect(await displacement()).toBeGreaterThan(before * .45);
+  expect(await displacement()).toBeLessThan(before * .55);
+  await page.clock.runFor(centerMs / 2 + 32);
   expect(await displacement()).toBeLessThan(.1);
-  await page.clock.runFor(84);
-  // Return starts at 168ms and still takes 120ms, as before.
-  expect(await displacement()).toBeGreaterThan(before * .25);
+  await page.clock.runFor(holdMs / 2);
+  expect(await displacement()).toBeLessThan(.1);
+  await page.clock.runFor(holdMs / 2 + returnMs / 2 - 32);
+  expect(await displacement()).toBeGreaterThan(before * .35);
   expect(await displacement()).toBeLessThan(before * .65);
-  await page.clock.runFor(80);
+  await page.clock.runFor(returnMs / 2 + 64);
   expect(await displacement()).toBeCloseTo(before, 1);
   await expect(page.locator('[data-idle-effect]')).toHaveCount(0);
   await expect(tracked).toHaveAttribute('data-image-id', image!);
@@ -147,11 +162,9 @@ async function verifyDebugControls(page: Page, screenshotPath: string) {
   expect(duration).toBe(1200);
   const scope = await page.locator('.eye-blink').evaluate(overlay => {
     const tile = overlay.closest('.eye-tile') as HTMLElement & { _screenX: number; _screenY: number };
-    const side = parseFloat(tile.style.width);
     const field = document.getElementById('field')!;
-    const x = tile._screenX + side / 2, y = tile._screenY + side / 2;
     const rect = overlay.getBoundingClientRect(), frame = tile.querySelector('.eye-hit')!.getBoundingClientRect();
-    return { edge: Math.min(x, field.clientWidth - x, y, field.clientHeight - y), band: Math.min(field.clientWidth, field.clientHeight) * .16,
+    return { edge: Math.min(frame.left, field.clientWidth - frame.right, frame.top, field.clientHeight - frame.bottom), band: Math.min(field.clientWidth, field.clientHeight) * .16,
       overlay: [rect.x, rect.y, rect.width, rect.height], frame: [frame.x, frame.y, frame.width, frame.height], opacity: getComputedStyle(field).opacity };
   });
   expect(scope.edge).toBeLessThanOrEqual(scope.band);
@@ -175,10 +188,102 @@ test('local debug controls run both effects immediately while inertia keeps movi
   await verifyDebugControls(page, testInfo.outputPath('local-debug-mobile.png'));
 });
 
+async function verifyClippedEdges(page: Page) {
+  const errors = await openField(page);
+  for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
+    const selected = await page.evaluate(({ edge, bandRatio }) => {
+      const field = document.getElementById('field')!;
+      const width = field.clientWidth, height = field.clientHeight;
+      const band = Math.min(width, height) * bandRatio;
+      const candidates = [...document.querySelectorAll<HTMLElement>('.eye-tile')].filter(tile => {
+        const rect = tile.querySelector('.eye-hit')!.getBoundingClientRect();
+        return tile.style.visibility === 'visible' && rect.right > 0 && rect.left < width && rect.bottom > 0 && rect.top < height
+          && Math.min(rect.left, width - rect.right, rect.top, height - rect.bottom) <= band;
+      });
+      const index = candidates.findIndex(tile => {
+        const rect = tile.querySelector('.eye-hit')!.getBoundingClientRect();
+        return edge === 'left' ? rect.left < 0 : edge === 'right' ? rect.right > width : edge === 'top' ? rect.top < 0 : rect.bottom > height;
+      });
+      if (index < 0) throw new Error(`No partially clipped ${edge} frame`);
+      Math.random = () => (index + .5) / candidates.length;
+      const tile = candidates[index];
+      document.querySelector<HTMLButtonElement>('[data-effect="glance"]')!.click();
+      return { column: tile.dataset.column, row: tile.dataset.row };
+    }, { edge, bandRatio: VIEWER_SETTINGS.idle.edgeBand });
+    await page.clock.runFor(32);
+    await expect(page.locator(`[data-column="${selected.column}"][data-row="${selected.row}"]`)).toHaveAttribute('data-idle-effect', 'glance');
+    await expect(page.locator('[data-idle-effect]')).toHaveCount(1);
+  }
+  expect(errors).toEqual([]);
+}
+
+test('partially visible frames on all four mobile edges remain eligible', async ({ page }) => {
+  await verifyClippedEdges(page);
+});
+
+test('GPU images use DOM fallback during context loss and recover without duplicate images', async ({ page }) => {
+  const errors = await openField(page);
+  await expect(page.locator('.eye-tile.is-gpu').first()).toBeAttached();
+  await expect(page.locator('.eye-surface img')).toHaveCount(0);
+  await page.evaluate(() => {
+    const gl = document.querySelector<HTMLCanvasElement>('#scene')!.getContext('webgl')!;
+    const extension = gl.getExtension('WEBGL_lose_context')!;
+    (window as any).__loseContext = () => extension.loseContext();
+    (window as any).__restoreContext = () => extension.restoreContext();
+  });
+  const target = page.locator('.eye-tile[data-column="2"][data-row="2"]');
+  for (let cycle = 0; cycle < 2; cycle++) {
+    await page.evaluate(() => (window as any).__loseContext());
+    await page.clock.runFor(100);
+    await expect(page.locator('#scene')).toBeHidden();
+    await expect(page.locator('.eye-tile.is-gpu')).toHaveCount(0);
+    await expect(target.locator('img')).toBeVisible();
+    expect(await target.locator('img').evaluate(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0)).toBe(true);
+    const position = await target.evaluate(element => {
+      const tile = element as HTMLElement & { _imageX: number; _imageY: number };
+      const transform = new DOMMatrixReadOnly(getComputedStyle(tile.querySelector('img')!).transform);
+      return { x: transform.m41, y: transform.m42, expectedX: tile._imageX, expectedY: tile._imageY };
+    });
+    expect(position.x).toBeCloseTo(position.expectedX, 2);
+    expect(position.y).toBeCloseTo(position.expectedY, 2);
+    await page.evaluate(() => (window as any).__restoreContext());
+    await page.clock.runFor(100);
+    await expect(page.locator('#scene')).toBeVisible();
+    await expect(target).toHaveClass(/is-gpu/);
+    await expect(page.locator('.eye-surface img')).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('an unreadable image settles without retrying on animation frames', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T00:00:00Z') });
+  await page.addInitScript(() => {
+    (window as any).__imageErrors = 0;
+    window.addEventListener('error', event => { if (event.target instanceof HTMLImageElement) (window as any).__imageErrors++; }, true);
+    Math.random = () => .99;
+  });
+  await page.route('**/content/me/viewer.json', route => route.fulfill({ json: { version: 2, items: [{
+    id: 'broken', title: 'Broken image', image: 'data:image/png;base64,AAAA', width: 96, height: 96,
+    sourceUrl: 'https://example.com/broken', eye: { x: .5, y: .5, r: .26 },
+  }] } }));
+  await page.goto('/content/me/', { waitUntil: 'networkidle' });
+  await expect(page.locator('#loading-screen')).toHaveCount(0, { timeout: 10000 });
+  await page.clock.pauseAt(new Date('2026-10-20T00:00:10Z'));
+  const before = await page.evaluate(() => (window as any).__imageErrors);
+  expect(before).toBeGreaterThan(0);
+  await page.mouse.move(100, 200);
+  await page.clock.runFor(1000);
+  expect(await page.evaluate(() => (window as any).__imageErrors)).toBe(before);
+  await expect(page.locator('#viewer-status')).toBeEmpty();
+});
+
 test.describe('desktop debug controls', () => {
   test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
   test('effects stay within an edge tile while the field coasts', async ({ page }, testInfo) => {
     await verifyDebugControls(page, testInfo.outputPath('local-debug-desktop.png'));
+  });
+  test('partially visible frames on all four desktop edges remain eligible', async ({ page }) => {
+    await verifyClippedEdges(page);
   });
 });
 
