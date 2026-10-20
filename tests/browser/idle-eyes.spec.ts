@@ -28,7 +28,7 @@ async function openField(page: Page, fallback = false, idleSettings: Record<stri
   await page.route('**/src/scripts/viewer-settings.js*', async route => {
     const response = await route.fetch();
     let source = await response.text();
-    for (const [key, value] of Object.entries({ startDelayMs: 60000, checkIntervalMs: 10000, meanIntervalMs: 30000, ...idleSettings })) {
+    for (const [key, value] of Object.entries({ startDelayMs: 60000, checkIntervalMs: 10000, meanIntervalMs: 30000, allBlinkStartDelayMs: 3600000, ...idleSettings })) {
       source = source.replace(new RegExp(`\\b${key}:\\s*(?:[\\d.]+|true|false),`), `${key}: ${value},`);
     }
     await route.fulfill({ response, body: source });
@@ -288,6 +288,26 @@ test('an unreadable image settles without retrying on animation frames', async (
 
 test.describe('desktop debug controls', () => {
   test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
+  test('all-eye debug blinking exchanges DOM fallback images within their own frames', async ({ page }, testInfo) => {
+    const errors = await openField(page, true);
+    const original = await page.locator('.eye-tile').evaluateAll(tiles => tiles.map(tile => (tile as HTMLElement).dataset.imageId));
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--blink-duration', '1200ms');
+      document.querySelector<HTMLButtonElement>('[data-effect="all-blink"]')!.click();
+    });
+    for (let step = 0; step < 20 && await page.locator('.eye-blink').count() === 0; step++) await page.clock.runFor(32);
+    await expect(page.locator('#field')).toHaveAttribute('data-idle-effect', 'all-blink');
+    await expect(page.locator('.eye-blink')).toHaveCount(await page.locator('.eye-tile').count());
+    await page.clock.runFor(480);
+    const changed = await page.locator('.eye-tile').evaluateAll(tiles => tiles.map(tile => (tile as HTMLElement).dataset.imageId));
+    expect(changed.every((id, index) => id !== original[index])).toBe(true);
+    await page.clock.runFor(1000);
+    await expect(page.locator('[data-idle-effect], .eye-blink')).toHaveCount(0);
+    await expect(page.locator('.eye-surface img').first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('all-eyes-dom-open.png') });
+    expect(errors).toEqual([]);
+  });
+
   test('effects stay within an eligible tile while the field coasts', async ({ page }, testInfo) => {
     await verifyDebugControls(page, testInfo.outputPath('local-debug-desktop.png'));
   });

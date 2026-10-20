@@ -108,3 +108,41 @@ test('repeated image exchanges exclude all eight neighbors, overrides and altern
   }
   assert.equal(createRandomField(images(1), 1).replacementAt(0, 0, new Map()), null);
 });
+
+test('simultaneous exchanges change every image and preserve neighbor spacing across individual overrides', () => {
+  for (const count of [9, 12, 31, 80]) {
+    const items = images(count);
+    items.push({ ...items[0], id: 'alternate-crop' });
+    let field = createRandomField(items, 42), overrides = new Map();
+    const at = (x, y) => overrides.get(`${x}:${y}`) || field.itemAt(x, y);
+    for (let exchange = 0; exchange < 12; exchange++) {
+      // Mix individual exchanges, including ones far outside the viewport.
+      for (const [x, y] of [[exchange - 6, 0], [-10007, 30002], [10007, -30002]]) {
+        const replacement = field.replacementAt(x, y, overrides, () => .25);
+        if (replacement) overrides.set(`${x}:${y}`, replacement);
+      }
+      const coordinates = Array.from({ length: 121 }, (_, index) => [index % 11 - 5, Math.floor(index / 11) - 5]);
+      coordinates.push([-10007, 30002], [10007, -30002]);
+      const before = coordinates.map(([x, y]) => at(x, y).image);
+      const shifted = field.shifted(overrides, () => exchange / 12);
+      // Preparing the next field must not alter the open eyes.
+      assert.deepEqual(coordinates.map(([x, y]) => at(x, y).image), before);
+      field = shifted.field;
+      overrides = shifted.overrides;
+      for (const [index, [x, y]] of coordinates.entries()) {
+        assert.notEqual(at(x, y).image, before[index]);
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if (dx || dy) assert.notEqual(at(x, y).image, at(x + dx, y + dy).image);
+        }
+      }
+    }
+  }
+});
+
+test('simultaneous exchanges support empty and single-image collections', () => {
+  assert.equal(createRandomField([], 1).shifted(new Map()).field.itemAt(-1, 200), null);
+  const field = createRandomField(images(1), 1);
+  const next = field.shifted(new Map([['-1:200', field.itemAt(-1, 200)]]));
+  assert.equal(next.field.itemAt(-1, 200).image, 'image-0');
+  assert.equal(next.overrides.get('-1:200').image, 'image-0');
+});

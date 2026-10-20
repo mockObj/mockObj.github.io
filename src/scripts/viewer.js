@@ -63,8 +63,10 @@ let viewerChannel;
 let fieldRenderer = null;
 const camera = { x: 0, y: 0, vx: 0, vy: 0, initialized: false };
 const gaze = { x: 0, y: 0, active: touchPointer.matches, centered: touchPointer.matches };
-const artworkOverrides = new Map();
-const idleEligibleAt = performance.now() + FIELD_IDLE.startDelayMs;
+let artworkOverrides = new Map();
+const idleStartedAt = performance.now();
+const idleEligibleAt = idleStartedAt + FIELD_IDLE.startDelayMs;
+const allBlinkEligibleAt = idleStartedAt + FIELD_IDLE.allBlinkStartDelayMs;
 let idleTimer = 0;
 let idleLotteryPending = false;
 let idleEffect = null;
@@ -86,12 +88,21 @@ function endIdleEffect() {
   if (!effect) return;
   // A started blink commits its new artwork even when scrolling recycles the
   // DOM tile before the closed pose. The original world cell keeps the result.
-  if (effect.type === 'blink' && effect.start !== null && !effect.swapped) swapIdleArtwork(effect);
-  effect.overlay?.remove();
-  delete effect.node.tile.dataset.idleEffect;
+  if (effect.type !== 'glance' && effect.start !== null && !effect.swapped) swapIdleArtwork(effect);
+  for (const overlay of effect.overlays.values()) overlay.remove();
+  if (effect.node) delete effect.node.tile.dataset.idleEffect;
+  delete field.dataset.idleEffect;
 }
 
 function swapIdleArtwork(effect) {
+  if (effect.type === 'all-blink') {
+    randomField = effect.nextField;
+    artworkOverrides = effect.nextOverrides;
+    contentVersion++;
+    effect.swapped = true;
+    sourceHint.classList.remove('is-visible');
+    return;
+  }
   artworkOverrides.set(`${effect.column}:${effect.row}`, effect.replacement);
   effect.swapped = true;
   if (effect.node.identity === effect.identity) {
@@ -106,6 +117,33 @@ function idleMotionSuppressed() {
   return reduceMotion.matches && !FIELD_IDLE.allowWithReducedMotion;
 }
 
+function attachBlinkOverlays(effect, nodes) {
+  const added = [];
+  for (const node of nodes) {
+    if (effect.overlays.has(node)) continue;
+    const overlay = document.createElement('span');
+    overlay.className = 'loading-blink eye-blink';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = '<span class="loading-blink__upper"></span><span class="loading-blink__lower"></span>';
+    node.tile.append(overlay);
+    effect.overlays.set(node, overlay);
+    added.push(overlay);
+  }
+  // Batch DOM writes before reading animation timings. Every lid uses the same
+  // clock, including tiles added by a resize or recycled during a swipe.
+  for (const overlay of added) effect.animations.push(...overlay.getAnimations({ subtree: true }));
+  effect.duration = Number(effect.animations[0].effect.getComputedTiming().duration);
+}
+
+function startAllBlink(requested) {
+  const shifted = randomField.shifted(artworkOverrides);
+  idleEffect = { type: 'all-blink', nextField: shifted.field, nextOverrides: shifted.overrides,
+    start: null, swapped: false, overlays: new Map(), animations: [], duration: 0, debug: requested };
+  field.dataset.idleEffect = 'all-blink';
+  if (requested) debugStatus.textContent = '全ての目：同時まばたき・画像交換';
+  requestFrame();
+}
+
 function scheduleIdleLottery() {
   clearTimeout(idleTimer);
   const paused = idleMotionSuppressed();
@@ -113,14 +151,14 @@ function scheduleIdleLottery() {
     debugPanel.dataset.idlePaused = String(paused);
     debugStatus.textContent = paused
       ? 'OSの「動きを減らす」により自動演出を停止中です。ボタンでの確認は可能です。'
-      : `中央に近い${FIELD_IDLE.protectedCenterCount}枚を除き、待ち時間なしで確認します。`;
+      : `A/Bは中央に近い${FIELD_IDLE.protectedCenterCount}枚を除外。全体まばたきは全ての目で、待ち時間なしで確認します。`;
   }
   if (document.hidden || paused) return;
   idleTimer = setTimeout(() => {
     idleLotteryPending = true;
     requestFrame();
     scheduleIdleLottery();
-  }, Math.max(FIELD_IDLE.checkIntervalMs, idleEligibleAt - performance.now()));
+  }, Math.max(FIELD_IDLE.checkIntervalMs, Math.min(idleEligibleAt, allBlinkEligibleAt) - performance.now()));
 }
 
 function drawIdleLottery(time) {
@@ -129,8 +167,15 @@ function drawIdleLottery(time) {
   debugEffectRequest = '';
   idleLotteryPending = false;
   if (requested) endIdleEffect();
-  if (idleEffect || !collectionReady || loadingScreen?.isConnected || (!requested && (idleMotionSuppressed()
-      || time < idleEligibleAt || Math.random() >= FIELD_IDLE.checkIntervalMs / FIELD_IDLE.meanIntervalMs))) return;
+  if (idleEffect || !collectionReady || loadingScreen?.isConnected || (!requested && idleMotionSuppressed())) return;
+  // One timer and one active effect. On the same draw, the all-eye blink takes
+  // priority over A/B; a running effect finishes before the next lottery.
+  if (requested === 'all-blink' || (!requested && time >= allBlinkEligibleAt
+      && Math.random() < FIELD_IDLE.checkIntervalMs / FIELD_IDLE.allBlinkMeanIntervalMs)) {
+    startAllBlink(Boolean(requested));
+    return;
+  }
+  if (!requested && (time < idleEligibleAt || Math.random() >= FIELD_IDLE.checkIntervalMs / FIELD_IDLE.meanIntervalMs)) return;
   const focal = Math.max(fieldWidth, fieldHeight) * 1.7;
   const occluded = debugPanel?.open ? debugPanel.getBoundingClientRect() : null;
   const visibleEyes = [];
@@ -161,7 +206,7 @@ function drawIdleLottery(time) {
     if (replacement) ensureTexture(`${activeCollection.items.length ? 'item' : 'preset'}:${replacement.id}`, replacement);
   }
   const type = replacement ? 'blink' : 'glance';
-  idleEffect = { node, column: node.column, row: node.row, identity: node.identity, type, replacement, start: replacement ? null : time, swapped: false, overlay: null, animations: [], duration: GLANCE_DURATION_MS, debug: Boolean(requested) };
+  idleEffect = { node, column: node.column, row: node.row, identity: node.identity, type, replacement, start: replacement ? null : time, swapped: false, overlays: new Map(), animations: [], duration: GLANCE_DURATION_MS, debug: Boolean(requested) };
   node.tile.dataset.idleEffect = idleEffect.type;
   if (requested) debugStatus.textContent = `${node.tile.dataset.title || '目'}：${type === 'blink' ? '個別まばたき・画像交換' : '視線を戻す'}`;
   requestFrame();
@@ -170,25 +215,26 @@ function drawIdleLottery(time) {
 function updateIdleEffect(time) {
   const effect = idleEffect;
   if (!effect) return;
-  if (effect.node.identity !== effect.identity || !effect.node.tile.isConnected || (idleMotionSuppressed() && !effect.debug)) { endIdleEffect(); return; }
-  if (effect.type === 'blink' && effect.start === null) {
-    const key = `${activeCollection.items.length ? 'item' : 'preset'}:${effect.replacement.id}`;
-    const record = ensureTexture(key, effect.replacement);
-    if (record.phase === 'error') { endIdleEffect(); return; }
-    if (record.phase !== 'ready') return;
-    const overlay = document.createElement('span');
-    overlay.className = 'loading-blink eye-blink';
-    overlay.setAttribute('aria-hidden', 'true');
-    overlay.innerHTML = '<span class="loading-blink__upper"></span><span class="loading-blink__lower"></span>';
-    effect.node.tile.append(overlay);
-    effect.overlay = overlay;
-    effect.animations = overlay.getAnimations({ subtree: true });
-    effect.duration = Number(effect.animations[0].effect.getComputedTiming().duration);
+  if ((effect.node && (effect.node.identity !== effect.identity || !effect.node.tile.isConnected))
+      || (idleMotionSuppressed() && !effect.debug)) { endIdleEffect(); return; }
+  if (effect.type !== 'glance' && effect.start === null) {
+    const nodes = effect.type === 'all-blink' ? pool : [effect.node];
+    let ready = true;
+    for (const node of nodes) {
+      const art = effect.type === 'all-blink'
+        ? effect.nextOverrides.get(`${node.column}:${node.row}`) || effect.nextField.itemAt(node.column, node.row)
+        : effect.replacement;
+      const record = ensureTexture(`${activeCollection.items.length ? 'item' : 'preset'}:${art.id}`, art);
+      if (record.phase === 'error') { endIdleEffect(); return; }
+      if (record.phase !== 'ready') ready = false;
+    }
+    if (!ready) return;
+    attachBlinkOverlays(effect, nodes);
     effect.start = time;
   }
   let elapsed = time - effect.start;
   const swapAt = effect.duration * VIEWER_SETTINGS.blink.swapAt;
-  if (effect.type === 'blink' && !effect.swapped && elapsed >= swapAt) {
+  if (effect.type !== 'glance' && !effect.swapped && elapsed >= swapAt) {
     // A missed frame must still show a fully closed pose during the swap.
     effect.start += elapsed - swapAt;
     elapsed = swapAt;
@@ -319,6 +365,7 @@ function resizeField() {
     node.tile.style.height = `${cellSize}px`;
     if (cellSize !== previousSize) node.identity = '';
   }
+  if (idleEffect?.type === 'all-blink' && idleEffect.start !== null) attachBlinkOverlays(idleEffect, pool);
   const dpr = Math.min(window.devicePixelRatio || 1, window.matchMedia('(pointer: coarse)').matches ? 1.25 : 1.5, Math.sqrt(1200000 / (fieldWidth * fieldHeight)));
   textureSide = Math.min(512, Math.max(128, 2 ** Math.ceil(Math.log2(cellSize * FIELD_ART_FRACTION * dpr * PHOTO_TEXTURE_SCALE))));
   fieldRenderer?.resize(fieldWidth, fieldHeight, dpr);
@@ -765,10 +812,10 @@ async function refreshCollection() {
       return ['id', 'title', 'image', 'imageGroup', 'width', 'height', 'sourceUrl'].every(key => art[key] === current[key])
         && ['x', 'y', 'r'].every(key => art.eye[key] === current.eye[key]);
     })) { requestFrame(); return; }
+    endIdleEffect();
     activeCollection = loaded;
     collectionReady = true;
     randomField = createRandomField(loaded.items.length ? loaded.items : eyePresets, fieldSeed);
-    endIdleEffect();
     const available = new Map((loaded.items.length ? loaded.items : eyePresets).map(art => [art.id, art]));
     for (const [coordinate, art] of artworkOverrides) {
       if (available.has(art.id)) artworkOverrides.set(coordinate, available.get(art.id));

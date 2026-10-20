@@ -13,8 +13,9 @@ import { VIEWER_SETTINGS } from '../../scripts/viewer-settings.js';
     <div class="field-debug__buttons">
       <button type="button" data-effect="glance">A：視線を戻す</button>
       <button type="button" data-effect="blink">B：まばたき・交換</button>
+      <button type="button" data-effect="all-blink">全体：まばたき・交換</button>
     </div>
-    <p id="field-debug-status" role="status">中央に近い{VIEWER_SETTINGS.idle.protectedCenterCount}枚を除き、待ち時間なしで確認します。</p>
+    <p id="field-debug-status" role="status">A/Bは中央に近い{VIEWER_SETTINGS.idle.protectedCenterCount}枚を除外。全体まばたきは全ての目で、待ち時間なしで確認します。</p>
   </div>
 </details>}
 <p class="viewer-status" id="viewer-status" role="status"></p>

@@ -53,7 +53,7 @@ button,a{-webkit-tap-highlight-color:transparent}
 .field-debug label{display:flex;align-items:center;gap:.5em}
 .field-debug input,.field-debug button{font:inherit;color:inherit;background:#292929;border:1px solid #555;border-radius:.25rem;min-height:2.75rem}
 .field-debug input{width:6em;padding:.4em .6em}
-.field-debug__buttons{display:flex;gap:.5rem;margin-top:.75rem}
+.field-debug__buttons{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
 .field-debug button{flex:1;padding:.5em;cursor:pointer}
 .field-debug p{margin:.75rem 0 0;color:#aaa89f;font-size:.6875rem}
 .field-debug :focus-visible{outline:2px solid var(--ink);outline-offset:2px}

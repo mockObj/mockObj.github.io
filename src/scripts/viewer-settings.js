@@ -1,7 +1,7 @@
 // 共通設定。時間はms、長さはCSS px、倍率は1が等倍、確率・割合は0〜1。
 // Astroと単体HTMLは、この設定から同じCSSとアニメーションを生成します。
 export const VIEWER_SETTINGS = Object.freeze({
-  // 黒い幕が上下から閉じて開く動き。全体の画面切替と個別の目で共通。
+  // 黒い幕が上下から閉じて開く動き。画面切替・個別の目・全ての目で共通。
   blink: Object.freeze({
     durationMs: 420, // 閉じ始めから開き終わるまでの時間。
     reducedDurationMs: 270, // OSで「動きを減らす」が有効なときの画面切替時間。
@@ -20,11 +20,13 @@ export const VIEWER_SETTINGS = Object.freeze({
   // 自動演出の抽選。画面全体で1回ずつ抽選し、目の数では頻度を増やさない。
   idle: Object.freeze({
     allowWithReducedMotion: true, // OSの「動きを減らす」が有効でも自動演出を再生する。falseなら自動演出を停止。
-    startDelayMs: 5000, // アクセス直後に自動演出を起こさない時間。
-    checkIntervalMs: 3000, // 抽選する間隔。短くすると抽選の粒度が細かくなる。
+    startDelayMs: 5000, // アクセス直後に個別演出（A/B）を起こさない時間。
+    checkIntervalMs: 900, // 抽選する間隔。短くすると抽選の粒度が細かくなる。
     meanIntervalMs: 4500, // A/B合計の平均発生間隔の目安。1回の当選確率はcheckIntervalMs÷この値。
-    blinkProbability: .7, // 当選後はBのまばたき70%、Aの視線移動30%。0でAのみ、1でBのみ。
-    protectedCenterCount: 9, // 抽選から除外する、画面中央に近い目の枚数。表示中の残りの目はすべて対象。
+    allBlinkStartDelayMs: 60000, // 全ての目の同時まばたき・画像交換を開始するまでの禁止時間。
+    allBlinkMeanIntervalMs: 60000, // 同時まばたきの平均発生間隔の目安。同じ抽選でA/Bより先に判定する。
+    blinkProbability: .7, // 個別演出の当選後はBのまばたき70%、Aの視線移動30%。0でAのみ、1でBのみ。
+    protectedCenterCount: 9, // A/Bから除外する中央に近い目の枚数。全体まばたきでは中央の目も対象。
   }),
   // 通常の視線追従。画像だけを動かし、四角の枠は固定する。
   attraction: Object.freeze({

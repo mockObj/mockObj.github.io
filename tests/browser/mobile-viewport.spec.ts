@@ -43,6 +43,36 @@ test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true
 
 test.describe('blink artwork', () => {
   test.use({ reducedMotion: 'reduce' });
+  test('an all-eye blink changes every painted image', async ({ page }, testInfo) => {
+    const errors = await openMobile(page, { solidColors: true, clock: false });
+    const eyes = () => page.locator('.eye-tile').evaluateAll(tiles => tiles.flatMap(tile => {
+      const { column, row, imageId } = (tile as HTMLElement).dataset;
+      const rect = tile.querySelector('.eye-hit')!.getBoundingClientRect();
+      const x = Math.round(rect.x + rect.width / 2), y = Math.round(rect.y + rect.height / 2);
+      const uncovered = document.elementFromPoint(x, y)?.closest('.eye-tile') === tile;
+      return uncovered && x > 4 && y > 4 && x < innerWidth - 4 && y < innerHeight - 4 ? [{ column, row, imageId, x, y }] : [];
+    }));
+    const painted = async () => {
+      const expected = await eyes();
+      const { data, info } = await sharp(await page.screenshot({ scale: 'css', path: testInfo.outputPath('all-eyes-painted.png') })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      return expected.length > 9 && expected.every(eye => {
+        const index = Number(eye.imageId!.split('-')[1]), pixel = (eye.y * info.width + eye.x) * info.channels;
+        return data[pixel] === 40 + index * 14 && data[pixel + 1] === 80 + index * 11 && data[pixel + 2] === 200 - index * 13;
+      });
+    };
+    await expect.poll(painted).toBe(true);
+    const original = new Map((await eyes()).map(eye => [`${eye.column}:${eye.row}`, eye.imageId]));
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--blink-duration', '1200ms');
+      document.querySelector<HTMLButtonElement>('[data-effect="all-blink"]')!.click();
+    });
+    await expect(page.locator('#field')).toHaveAttribute('data-idle-effect', 'all-blink');
+    await expect(page.locator('#field')).not.toHaveAttribute('data-idle-effect', 'all-blink');
+    expect((await eyes()).every(eye => eye.imageId !== original.get(`${eye.column}:${eye.row}`))).toBe(true);
+    await expect.poll(painted).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
   for (const interrupted of [false, true]) test(`a blink changes the painted image${interrupted ? ' even if panning recycles its tile' : ''}`, async ({ page }, testInfo) => {
     // Native frames keep WebGL presentation synchronized with screenshots.
     const errors = await openMobile(page, { solidColors: true, clock: false });
@@ -97,6 +127,74 @@ test.describe('blink artwork', () => {
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) test.describe(`automatic effects with ${reducedMotion}`, () => {
   test.use({ reducedMotion });
+  test('all eyes blink and exchange together after the first minute, including during panning and resizing', async ({ page }, testInfo) => {
+    const errors = await openMobile(page);
+    await page.evaluate(() => document.documentElement.style.setProperty('--blink-duration', '2000ms'));
+    await page.clock.runFor(Math.max(0, 58000 - await page.evaluate(() => performance.now())));
+    // Guaranteed draws can run B before the minute, but never the all-eye effect.
+    await page.evaluate(() => { Math.random = () => 0; });
+    await page.clock.runFor(Math.max(0, 59900 - await page.evaluate(() => performance.now())));
+    await expect(page.locator('#field')).not.toHaveAttribute('data-idle-effect', 'all-blink');
+    for (let step = 0; step < 50; step++) {
+      await page.clock.runFor(100);
+      if (await page.locator('#field[data-idle-effect="all-blink"]').count()) break;
+    }
+    const field = page.locator('#field');
+    await expect(field).toHaveAttribute('data-idle-effect', 'all-blink');
+    expect(await page.evaluate(() => performance.now())).toBeGreaterThanOrEqual(VIEWER_SETTINGS.idle.allBlinkStartDelayMs);
+    // If both lotteries would win, the all-eye effect is the only active effect.
+    await expect(page.locator('.eye-tile[data-idle-effect]')).toHaveCount(0);
+    const original = await page.locator('.eye-tile').evaluateAll(tiles => tiles.map(tile => (tile as HTMLElement).dataset.imageId));
+    const count = await page.locator('.eye-tile').count();
+    for (let step = 0; step < 20 && await page.locator('.eye-blink').count() !== count; step++) await page.clock.runFor(32);
+    await expect(page.locator('.eye-blink')).toHaveCount(count);
+    await page.clock.runFor(160);
+    expect(await page.locator('.eye-tile').evaluateAll(tiles => tiles.map(tile => (tile as HTMLElement).dataset.imageId))).toEqual(original);
+    const elapsed = await page.locator('.eye-blink').first().evaluate(overlay => Number(overlay.getAnimations({ subtree: true })[0].currentTime));
+    await page.clock.runFor(2000 * VIEWER_SETTINGS.blink.swapAt - elapsed + 20);
+    const closed = await page.locator('.eye-blink').evaluateAll(overlays => overlays.every(overlay =>
+      [...overlay.children].every(lid => Math.abs(new DOMMatrixReadOnly(getComputedStyle(lid).transform).m42) < .1)));
+    expect(closed).toBe(true);
+    const changed = await page.locator('.eye-tile').evaluateAll(tiles => tiles.map(tile => (tile as HTMLElement).dataset.imageId));
+    expect(changed.every((id, index) => id !== original[index])).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath('all-eyes-closed.png') });
+    await page.locator('#field').dispatchEvent('wheel', { deltaY: 1600, deltaX: 80 });
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await page.clock.runFor(100);
+    await expect(field).toHaveAttribute('data-idle-effect', 'all-blink');
+    const synchronized = await page.locator('.eye-tile').evaluateAll(tiles => {
+      const phases: number[] = [];
+      const aligned = tiles.every(tile => {
+        const overlay = tile.querySelector('.eye-blink');
+        if (!overlay) return false;
+        const rect = overlay.getBoundingClientRect(), hit = tile.querySelector('.eye-hit')!.getBoundingClientRect();
+        phases.push(...overlay.getAnimations({ subtree: true }).map(animation => Number(animation.currentTime)));
+        return rect.x === hit.x && rect.y === hit.y && rect.width === hit.width && rect.height === hit.height;
+      });
+      return { aligned, phaseRange: Math.max(...phases) - Math.min(...phases) };
+    });
+    expect(synchronized).toEqual({ aligned: true, phaseRange: 0 });
+    expect(await field.evaluate(element => getComputedStyle(element).opacity)).toBe('1');
+    await page.evaluate(() => { Math.random = () => .99; });
+    await page.clock.runFor(2200);
+    await expect(page.locator('[data-idle-effect], .eye-blink')).toHaveCount(0);
+    const neighborsUnique = await page.locator('.eye-tile').evaluateAll(tiles => {
+      const images = new Map(tiles.map(tile => {
+        const { column, row, imageId } = (tile as HTMLElement).dataset;
+        return [`${column}:${row}`, imageId];
+      }));
+      return tiles.every(tile => {
+        const { column, row, imageId } = (tile as HTMLElement).dataset;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if ((dx || dy) && images.get(`${Number(column) + dx}:${Number(row) + dy}`) === imageId) return false;
+        }
+        return true;
+      });
+    });
+    expect(neighborsUnique).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
   test('both automatic effects run without scrolling or debug controls', async ({ page }) => {
     const errors = await openMobile(page);
     await page.evaluate(() => {

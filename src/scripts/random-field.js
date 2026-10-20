@@ -61,27 +61,44 @@ export function createRandomField(items, seed = Math.random() * 0x100000000 >>> 
     [order[end], order[other]] = [order[other], order[end]];
   }
   const phase = count ? hash(31, 71) % count : 0;
-  function itemAt(column, row) {
-    if (!count) return null;
-    // Coordinate noise breaks repeating tiles; spacing holds across every
-    // boundary and negative axis, independently of the order of queries.
-    const variation = jitter ? hash(column, row, seed ^ 0x6d2b79f5) & 1 : 0;
-    const variants = groups[order[modulo(column * stepX + row * stepY + phase + variation)]];
-    return variants[hash(column, row, seed ^ 0x7f4a7c15) % variants.length];
+  const groupPositions = new Map(order.map((index, position) => [groups[index][0].imageGroup || groups[index][0].image, position]));
+  const variantAt = (variants, column, row) => variants[hash(column, row, seed ^ 0x7f4a7c15) % variants.length];
+  function placement(imageOffset = 0) {
+    function itemAt(column, row) {
+      if (!count) return null;
+      // Coordinate noise breaks repeating tiles; spacing holds across every
+      // boundary and negative axis, independently of the order of queries.
+      const variation = jitter ? hash(column, row, seed ^ 0x6d2b79f5) & 1 : 0;
+      const variants = groups[order[modulo(column * stepX + row * stepY + phase + variation + imageOffset)]];
+      return variantAt(variants, column, row);
+    }
+    return {
+      uniqueCount: count,
+      itemAt,
+      shifted(overrides, random = Math.random) {
+        // A cyclic permutation changes every image while preserving all existing
+        // spacing, including individual overrides and cells outside the viewport.
+        const shift = count > 1 ? 1 + Math.floor(random() * (count - 1)) : 0;
+        const nextOverrides = new Map();
+        for (const [coordinate, art] of overrides) {
+          const [column, row] = coordinate.split(':').map(Number);
+          const position = groupPositions.get(art.imageGroup || art.image);
+          nextOverrides.set(coordinate, variantAt(groups[order[modulo(position + shift)]], column, row));
+        }
+        return { field: placement(count ? modulo(imageOffset + shift) : 0), overrides: nextOverrides };
+      },
+      replacementAt(column, row, overrides, random = Math.random) {
+        const excluded = new Set();
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const art = overrides.get(`${column + dx}:${row + dy}`) || itemAt(column + dx, row + dy);
+          if (art) excluded.add(art.imageGroup || art.image);
+        }
+        const candidates = groups.filter(group => !excluded.has(group[0].imageGroup || group[0].image));
+        if (!candidates.length) return null;
+        const variants = candidates[Math.floor(random() * candidates.length)];
+        return variants[Math.floor(random() * variants.length)];
+      },
+    };
   }
-  return {
-    uniqueCount: count,
-    itemAt,
-    replacementAt(column, row, overrides, random = Math.random) {
-      const excluded = new Set();
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const art = overrides.get(`${column + dx}:${row + dy}`) || itemAt(column + dx, row + dy);
-        if (art) excluded.add(art.imageGroup || art.image);
-      }
-      const candidates = groups.filter(group => !excluded.has(group[0].imageGroup || group[0].image));
-      if (!candidates.length) return null;
-      const variants = candidates[Math.floor(random() * candidates.length)];
-      return variants[Math.floor(random() * variants.length)];
-    },
-  };
+  return placement();
 }
