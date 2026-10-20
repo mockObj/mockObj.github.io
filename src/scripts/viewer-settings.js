@@ -23,7 +23,7 @@ export const VIEWER_SETTINGS = Object.freeze({
     startDelayMs: 5000, // アクセス直後に自動演出を起こさない時間。
     checkIntervalMs: 3000, // 抽選する間隔。短くすると抽選の粒度が細かくなる。
     meanIntervalMs: 9000, // A/B合計の平均発生間隔の目安。1回の当選確率はcheckIntervalMs÷この値。
-    blinkProbability: .5, // 当選後にBのまばたきを選ぶ確率。0でAのみ、1でBのみ。
+    blinkProbability: .7, // 当選後はBのまばたき70%、Aの視線移動30%。0でAのみ、1でBのみ。
     protectedCenterCount: 9, // 抽選から除外する、画面中央に近い目の枚数。表示中の残りの目はすべて対象。
   }),
   // 通常の視線追従。画像だけを動かし、四角の枠は固定する。

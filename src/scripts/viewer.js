@@ -81,9 +81,25 @@ function resetGaze() {
 }
 
 function endIdleEffect() {
-  idleEffect?.overlay?.remove();
-  if (idleEffect) delete idleEffect.node.tile.dataset.idleEffect;
+  const effect = idleEffect;
   idleEffect = null;
+  if (!effect) return;
+  // A started blink commits its new artwork even when scrolling recycles the
+  // DOM tile before the closed pose. The original world cell keeps the result.
+  if (effect.type === 'blink' && effect.start !== null && !effect.swapped) swapIdleArtwork(effect);
+  effect.overlay?.remove();
+  delete effect.node.tile.dataset.idleEffect;
+}
+
+function swapIdleArtwork(effect) {
+  artworkOverrides.set(`${effect.column}:${effect.row}`, effect.replacement);
+  effect.swapped = true;
+  if (effect.node.identity === effect.identity) {
+    effect.node.identity = '';
+    bindTile(effect.node, effect.column, effect.row);
+    effect.identity = effect.node.identity;
+  }
+  sourceHint.classList.remove('is-visible');
 }
 
 function idleMotionSuppressed() {
@@ -145,7 +161,7 @@ function drawIdleLottery(time) {
     if (replacement) ensureTexture(`${activeCollection.items.length ? 'item' : 'preset'}:${replacement.id}`, replacement);
   }
   const type = replacement ? 'blink' : 'glance';
-  idleEffect = { node, identity: node.identity, type, replacement, start: replacement ? null : time, swapped: false, overlay: null, animations: [], duration: GLANCE_DURATION_MS, debug: Boolean(requested) };
+  idleEffect = { node, column: node.column, row: node.row, identity: node.identity, type, replacement, start: replacement ? null : time, swapped: false, overlay: null, animations: [], duration: GLANCE_DURATION_MS, debug: Boolean(requested) };
   node.tile.dataset.idleEffect = idleEffect.type;
   if (requested) debugStatus.textContent = `${node.tile.dataset.title || '目'}：${type === 'blink' ? '個別まばたき・画像交換' : '視線を戻す'}`;
   requestFrame();
@@ -176,14 +192,7 @@ function updateIdleEffect(time) {
     // A missed frame must still show a fully closed pose during the swap.
     effect.start += elapsed - swapAt;
     elapsed = swapAt;
-    const node = effect.node;
-    const coordinate = `${node.tile.dataset.column}:${node.tile.dataset.row}`;
-    artworkOverrides.set(coordinate, effect.replacement);
-    node.identity = '';
-    bindTile(node, Number(node.tile.dataset.column), Number(node.tile.dataset.row));
-    effect.identity = node.identity;
-    effect.swapped = true;
-    sourceHint.classList.remove('is-visible');
+    swapIdleArtwork(effect);
   }
   for (const animation of effect.animations) animation.currentTime = Math.min(elapsed, effect.duration);
   if (elapsed >= effect.duration) endIdleEffect();
