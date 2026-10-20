@@ -11,14 +11,14 @@ export const VIEWER_SETTINGS = Object.freeze({
     openEasing: 'cubic-bezier(.12,.6,.35,1)',
   }),
   glance: Object.freeze({
-    centerMs: 120,
+    centerMs: 500,
     holdMs: 48,
     returnMs: 120,
   }),
   idle: Object.freeze({
-    startDelayMs: 60000,
-    checkIntervalMs: 10000,
-    meanIntervalMs: 30000,
+    startDelayMs: 10000,
+    checkIntervalMs: 5000,
+    meanIntervalMs: 10000,
     blinkProbability: .5,
     edgeBand: .16,
   }),
