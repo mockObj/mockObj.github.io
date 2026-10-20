@@ -46,6 +46,9 @@ let pitchX = 150;
 let pitchY = 150;
 let fieldWidth = 0;
 let fieldHeight = 0;
+let fieldLeft = 0;
+let fieldTop = 0;
+let viewportDirty = true;
 let poolColumns = 0;
 let poolRows = 0;
 let maximumShift = 0;
@@ -83,9 +86,20 @@ function endIdleEffect() {
   idleEffect = null;
 }
 
+function idleMotionSuppressed() {
+  return reduceMotion.matches && !FIELD_IDLE.allowWithReducedMotion;
+}
+
 function scheduleIdleLottery() {
   clearTimeout(idleTimer);
-  if (document.hidden || reduceMotion.matches) return;
+  const paused = idleMotionSuppressed();
+  if (debugPanel && debugPanel.dataset.idlePaused !== String(paused)) {
+    debugPanel.dataset.idlePaused = String(paused);
+    debugStatus.textContent = paused
+      ? 'OSの「動きを減らす」により自動演出を停止中です。ボタンでの確認は可能です。'
+      : `中央に近い${FIELD_IDLE.protectedCenterCount}枚を除き、待ち時間なしで確認します。`;
+  }
+  if (document.hidden || paused) return;
   idleTimer = setTimeout(() => {
     idleLotteryPending = true;
     requestFrame();
@@ -99,13 +113,13 @@ function drawIdleLottery(time) {
   debugEffectRequest = '';
   idleLotteryPending = false;
   if (requested) endIdleEffect();
-  if (idleEffect || !collectionReady || loadingScreen?.isConnected || (!requested && (reduceMotion.matches
+  if (idleEffect || !collectionReady || loadingScreen?.isConnected || (!requested && (idleMotionSuppressed()
       || time < idleEligibleAt || Math.random() >= FIELD_IDLE.checkIntervalMs / FIELD_IDLE.meanIntervalMs))) return;
-  const band = Math.min(fieldWidth, fieldHeight) * FIELD_IDLE.edgeBand;
   const focal = Math.max(fieldWidth, fieldHeight) * 1.7;
   const occluded = debugPanel?.open ? debugPanel.getBoundingClientRect() : null;
-  const candidates = pool.filter(node => {
-    if (!node.art || node.visibility !== 'visible' || node.tile === document.activeElement || node.tile === dragState?.tile) return false;
+  const visibleEyes = [];
+  for (const node of pool) {
+    if (!node.art || node.visibility !== 'visible') continue;
     const x = node.tile._screenX + cellSize / 2;
     const y = node.tile._screenY + cellSize / 2;
     const depth = reduceMotion.matches ? 0 : node.appearance.depth;
@@ -113,12 +127,16 @@ function drawIdleLottery(time) {
     const left = Math.max(0, x - radius), right = Math.min(fieldWidth, x + radius);
     const top = Math.max(0, y - radius), bottom = Math.min(fieldHeight, y + radius);
     // Use the visible artwork frame, including partly clipped mobile edge eyes.
-    if (right <= left || bottom <= top) return false;
-    if (occluded && right > occluded.left && left < occluded.right && bottom > occluded.top && top < occluded.bottom) return false;
-    return Math.min(left, fieldWidth - right, top, fieldHeight - bottom) <= band;
-  });
+    if (right <= left || bottom <= top) continue;
+    visibleEyes.push({ node, left, right, top, bottom, distance: (x - fieldWidth / 2) ** 2 + (y - fieldHeight / 2) ** 2 });
+  }
+  // Recompute from the live camera at each draw, including during touch inertia.
+  visibleEyes.sort((a, b) => a.distance - b.distance || a.node.row - b.node.row || a.node.column - b.node.column);
+  const candidates = visibleEyes.slice(FIELD_IDLE.protectedCenterCount).filter(({ left, right, top, bottom }) =>
+    !occluded || right + fieldLeft <= occluded.left || left + fieldLeft >= occluded.right
+      || bottom + fieldTop <= occluded.top || top + fieldTop >= occluded.bottom);
   if (!candidates.length) return;
-  const node = candidates[Math.floor(Math.random() * candidates.length)];
+  const { node } = candidates[Math.floor(Math.random() * candidates.length)];
   const blink = requested ? requested === 'blink' : Math.random() < FIELD_IDLE.blinkProbability;
   let replacement = null;
   if (blink) {
@@ -136,7 +154,7 @@ function drawIdleLottery(time) {
 function updateIdleEffect(time) {
   const effect = idleEffect;
   if (!effect) return;
-  if (effect.node.identity !== effect.identity || !effect.node.tile.isConnected || (reduceMotion.matches && !effect.debug)) { endIdleEffect(); return; }
+  if (effect.node.identity !== effect.identity || !effect.node.tile.isConnected || (idleMotionSuppressed() && !effect.debug)) { endIdleEffect(); return; }
   if (effect.type === 'blink' && effect.start === null) {
     const key = `${activeCollection.items.length ? 'item' : 'preset'}:${effect.replacement.id}`;
     const record = ensureTexture(key, effect.replacement);
@@ -196,11 +214,36 @@ function showSource(tile) {
   gestureHint.classList.add('is-hidden');
 }
 
+function requestViewportUpdate() {
+  viewportDirty = true;
+  requestFrame();
+}
+
+function syncViewport() {
+  const viewport = window.visualViewport;
+  // Browser bars and keyboards can change the visible area without a window
+  // resize. Keep the field and its footer on the same visible rectangle.
+  const values = {
+    '--viewer-width': viewport?.width || window.innerWidth,
+    '--viewer-height': viewport?.height || window.innerHeight,
+    '--viewer-left': viewport?.offsetLeft || 0,
+    '--viewer-top': viewport?.offsetTop || 0,
+  };
+  for (const [name, value] of Object.entries(values)) {
+    const pixels = `${value}px`;
+    if (document.body.style.getPropertyValue(name) !== pixels) document.body.style.setProperty(name, pixels);
+  }
+  resizeField();
+}
+
 function resizeField() {
   const previousSize = cellSize;
   const previousPitchX = pitchX, previousPitchY = pitchY;
   const width = Math.max(1, field.clientWidth);
   const height = Math.max(1, field.clientHeight);
+  const rect = field.getBoundingClientRect();
+  fieldLeft = rect.left;
+  fieldTop = rect.top;
   if (width === fieldWidth && height === fieldHeight) return;
   fieldWidth = width;
   fieldHeight = height;
@@ -432,6 +475,7 @@ function ensureFallbackArtwork(node) {
 
 function drawFrame(time) {
   frameHandle = 0;
+  if (viewportDirty) { viewportDirty = false; syncViewport(); }
   const dt = clampValue(lastFrame ? time - lastFrame : 16.67, 1, 64);
   lastFrame = time;
   updateIdleEffect(time);
@@ -620,8 +664,8 @@ function updateGaze(event) {
   // Touch scrolls the eyes past a fixed point on screen, instead of moving
   // that point with the same finger and leaving their relative gaze unchanged.
   gaze.centered = event.pointerType === 'touch';
-  gaze.x = event.clientX;
-  gaze.y = event.clientY;
+  gaze.x = event.clientX - fieldLeft;
+  gaze.y = event.clientY - fieldTop;
   gaze.active = true;
 }
 
@@ -737,7 +781,17 @@ async function refreshCollection() {
 }
 
 
-window.addEventListener('resize', resizeField);
+window.addEventListener('resize', requestViewportUpdate);
+window.visualViewport?.addEventListener('resize', requestViewportUpdate);
+window.visualViewport?.addEventListener('scroll', requestViewportUpdate);
+new ResizeObserver(resizeField).observe(field);
+window.addEventListener('pageshow', () => {
+  cancelAnimationFrame(frameHandle);
+  frameHandle = 0;
+  lastFrame = 0;
+  requestViewportUpdate();
+  scheduleIdleLottery();
+});
 window.addEventListener('focus', () => { if (!embeddedViewer) refreshCollection(); });
 window.addEventListener('me:collection', refreshCollection);
 window.addEventListener('storage', event => { if (event.key === 'me-eye-grid-saved') refreshCollection(); });
@@ -746,7 +800,7 @@ document.addEventListener('visibilitychange', () => {
   endIdleEffect();
   scheduleIdleLottery();
   if (document.hidden) { cancelAnimationFrame(frameHandle); frameHandle = 0; lastFrame = 0; camera.vx = camera.vy = 0; }
-  else { if (!embeddedViewer) refreshCollection(); requestFrame(); }
+  else { if (!embeddedViewer) refreshCollection(); requestViewportUpdate(); }
 });
 reduceMotion.addEventListener('change', () => { endIdleEffect(); scheduleIdleLottery(); requestFrame(); });
 touchPointer.addEventListener('change', () => { resetGaze(); requestFrame(); });
@@ -766,6 +820,6 @@ if (!embeddedViewer) {
     viewerChannel.onmessage = event => { if (event.data?.type === 'saved') refreshCollection(); };
   } catch {}
 }
-resizeField();
+syncViewport();
 refreshCollection();
 scheduleIdleLottery();

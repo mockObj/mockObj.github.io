@@ -4,7 +4,20 @@ import { VIEWER_SETTINGS } from '../../src/scripts/viewer-settings.js';
 
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-async function openField(page: Page, fallback = false) {
+async function rankedEyes(page: Page) {
+  return page.locator('.eye-tile').evaluateAll(tiles => {
+    const field = document.getElementById('field')!.getBoundingClientRect();
+    return tiles.map(tile => {
+      const rect = tile.querySelector('.eye-hit')!.getBoundingClientRect();
+      const { column, row } = (tile as HTMLElement).dataset;
+      return { column: Number(column), row: Number(row), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+        distance: (rect.x + rect.width / 2 - field.x - field.width / 2) ** 2 + (rect.y + rect.height / 2 - field.y - field.height / 2) ** 2 };
+    }).filter(rect => rect.right > field.left && rect.left < field.right && rect.bottom > field.top && rect.top < field.bottom)
+      .sort((a, b) => a.distance - b.distance || a.row - b.row || a.column - b.column);
+  });
+}
+
+async function openField(page: Page, fallback = false, idleSettings: Record<string, number | boolean> = {}) {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   const manifests: string[] = [];
@@ -15,8 +28,8 @@ async function openField(page: Page, fallback = false) {
   await page.route('**/src/scripts/viewer-settings.js*', async route => {
     const response = await route.fetch();
     let source = await response.text();
-    for (const [key, value] of Object.entries({ startDelayMs: 60000, checkIntervalMs: 10000, meanIntervalMs: 30000 })) {
-      source = source.replace(new RegExp(`\\b${key}:\\s*[\\d.]+,`), `${key}: ${value},`);
+    for (const [key, value] of Object.entries({ startDelayMs: 60000, checkIntervalMs: 10000, meanIntervalMs: 30000, ...idleSettings })) {
+      source = source.replace(new RegExp(`\\b${key}:\\s*(?:[\\d.]+|true|false),`), `${key}: ${value},`);
     }
     await route.fulfill({ response, body: source });
   });
@@ -67,11 +80,12 @@ async function winLottery(page: Page, type: 'glance' | 'blink') {
   expect(position.left).toBeLessThan(390);
   expect(position.bottom).toBeGreaterThan(0);
   expect(position.top).toBeLessThan(844);
-  expect(Math.min(position.left, 390 - position.right, position.top, 844 - position.bottom)).toBeLessThanOrEqual(390 * VIEWER_SETTINGS.idle.edgeBand);
+  const coordinate = await tile.evaluate(element => ({ column: Number((element as HTMLElement).dataset.column), row: Number((element as HTMLElement).dataset.row) }));
+  expect((await rankedEyes(page)).findIndex(eye => eye.column === coordinate.column && eye.row === coordinate.row)).toBeGreaterThanOrEqual(VIEWER_SETTINGS.idle.protectedCenterCount);
   return tile;
 }
 
-test('an edge eye centers more slowly and returns at its original speed', async ({ page }) => {
+test('an eligible eye centers more slowly and returns at its original speed', async ({ page }) => {
   const errors = await openField(page);
   const tile = await winLottery(page, 'glance');
   const coordinate = await tile.evaluate(element => ({ column: (element as HTMLElement).dataset.column, row: (element as HTMLElement).dataset.row }));
@@ -164,10 +178,10 @@ async function verifyDebugControls(page: Page, screenshotPath: string) {
     const tile = overlay.closest('.eye-tile') as HTMLElement & { _screenX: number; _screenY: number };
     const field = document.getElementById('field')!;
     const rect = overlay.getBoundingClientRect(), frame = tile.querySelector('.eye-hit')!.getBoundingClientRect();
-    return { edge: Math.min(frame.left, field.clientWidth - frame.right, frame.top, field.clientHeight - frame.bottom), band: Math.min(field.clientWidth, field.clientHeight) * .16,
+    return { column: Number(tile.dataset.column), row: Number(tile.dataset.row),
       overlay: [rect.x, rect.y, rect.width, rect.height], frame: [frame.x, frame.y, frame.width, frame.height], opacity: getComputedStyle(field).opacity };
   });
-  expect(scope.edge).toBeLessThanOrEqual(scope.band);
+  expect((await rankedEyes(page)).findIndex(eye => eye.column === scope.column && eye.row === scope.row)).toBeGreaterThanOrEqual(VIEWER_SETTINGS.idle.protectedCenterCount);
   expect(scope.overlay).toEqual(scope.frame);
   expect(scope.opacity).toBe('1');
   const cameraY = () => page.locator('.eye-tile').first().evaluate(element => {
@@ -188,37 +202,32 @@ test('local debug controls run both effects immediately while inertia keeps movi
   await verifyDebugControls(page, testInfo.outputPath('local-debug-mobile.png'));
 });
 
-async function verifyClippedEdges(page: Page) {
+async function verifyEligibleEyes(page: Page) {
   const errors = await openField(page);
-  for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
-    const selected = await page.evaluate(({ edge, bandRatio }) => {
-      const field = document.getElementById('field')!;
-      const width = field.clientWidth, height = field.clientHeight;
-      const band = Math.min(width, height) * bandRatio;
-      const candidates = [...document.querySelectorAll<HTMLElement>('.eye-tile')].filter(tile => {
-        const rect = tile.querySelector('.eye-hit')!.getBoundingClientRect();
-        return tile.style.visibility === 'visible' && rect.right > 0 && rect.left < width && rect.bottom > 0 && rect.top < height
-          && Math.min(rect.left, width - rect.right, rect.top, height - rect.bottom) <= band;
-      });
-      const index = candidates.findIndex(tile => {
-        const rect = tile.querySelector('.eye-hit')!.getBoundingClientRect();
-        return edge === 'left' ? rect.left < 0 : edge === 'right' ? rect.right > width : edge === 'top' ? rect.top < 0 : rect.bottom > height;
-      });
-      if (index < 0) throw new Error(`No partially clipped ${edge} frame`);
-      Math.random = () => (index + .5) / candidates.length;
-      const tile = candidates[index];
-      document.querySelector<HTMLButtonElement>('[data-effect="glance"]')!.click();
-      return { column: tile.dataset.column, row: tile.dataset.row };
-    }, { edge, bandRatio: VIEWER_SETTINGS.idle.edgeBand });
-    await page.clock.runFor(32);
-    await expect(page.locator(`[data-column="${selected.column}"][data-row="${selected.row}"]`)).toHaveAttribute('data-idle-effect', 'glance');
-    await expect(page.locator('[data-idle-effect]')).toHaveCount(1);
+  for (const pan of [false, true]) {
+    if (pan) {
+      await page.locator('#field').dispatchEvent('wheel', { deltaY: 125, deltaX: 70 });
+      await page.clock.runFor(2400);
+    }
+    const eyes = await rankedEyes(page);
+    const protectedCount = VIEWER_SETTINGS.idle.protectedCenterCount;
+    // Every visible eye outside the central nine must be eligible, including
+    // interior eyes that never belonged to the previous outer-edge band.
+    for (let rank = protectedCount; rank < eyes.length; rank++) {
+      await page.evaluate(draw => {
+        Math.random = () => draw;
+        document.querySelector<HTMLButtonElement>('[data-effect="glance"]')!.click();
+      }, (rank - protectedCount + .5) / (eyes.length - protectedCount));
+      await page.clock.runFor(16);
+      await expect(page.locator(`[data-column="${eyes[rank].column}"][data-row="${eyes[rank].row}"]`)).toHaveAttribute('data-idle-effect', 'glance');
+      await expect(page.locator('[data-idle-effect]')).toHaveCount(1);
+    }
   }
   expect(errors).toEqual([]);
 }
 
-test('partially visible frames on all four mobile edges remain eligible', async ({ page }) => {
-  await verifyClippedEdges(page);
+test('every visible eye except the nearest nine is eligible before and after mobile panning', async ({ page }) => {
+  await verifyEligibleEyes(page);
 });
 
 test('GPU images use DOM fallback during context loss and recover without duplicate images', async ({ page }) => {
@@ -279,17 +288,18 @@ test('an unreadable image settles without retrying on animation frames', async (
 
 test.describe('desktop debug controls', () => {
   test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
-  test('effects stay within an edge tile while the field coasts', async ({ page }, testInfo) => {
+  test('effects stay within an eligible tile while the field coasts', async ({ page }, testInfo) => {
     await verifyDebugControls(page, testInfo.outputPath('local-debug-desktop.png'));
   });
-  test('partially visible frames on all four desktop edges remain eligible', async ({ page }) => {
-    await verifyClippedEdges(page);
+  test('every visible eye except the nearest nine is eligible before and after desktop panning', async ({ page }) => {
+    await verifyEligibleEyes(page);
   });
 });
 
-test('reduced motion suppresses spontaneous effects', async ({ page }) => {
+test('the reduced-motion opt-out suppresses spontaneous effects', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const errors = await openField(page);
+  const errors = await openField(page, false, { allowWithReducedMotion: false });
+  await expect(page.locator('#field-debug-status')).toContainText('動きを減らす');
   await page.evaluate(() => { Math.random = () => 0; });
   await page.clock.runFor(240000);
   await expect(page.locator('[data-idle-effect], .eye-blink')).toHaveCount(0);

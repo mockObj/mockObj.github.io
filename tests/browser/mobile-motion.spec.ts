@@ -13,6 +13,8 @@ async function cameraPosition(page: Page) {
 }
 
 async function openEyes(page: Page) {
+  // Automatic effects have separate coverage; keep gesture measurements stable.
+  await page.addInitScript(() => { Math.random = () => .99; });
   await page.goto('/');
   const image = await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 96;

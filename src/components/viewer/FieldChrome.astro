@@ -14,7 +14,7 @@ import { VIEWER_SETTINGS } from '../../scripts/viewer-settings.js';
       <button type="button" data-effect="glance">A：視線を戻す</button>
       <button type="button" data-effect="blink">B：まばたき・交換</button>
     </div>
-    <p id="field-debug-status" role="status">画面端の目を1つ選び、待ち時間なしで確認します。</p>
+    <p id="field-debug-status" role="status">中央に近い{VIEWER_SETTINGS.idle.protectedCenterCount}枚を除き、待ち時間なしで確認します。</p>
   </div>
 </details>}
 <p class="viewer-status" id="viewer-status" role="status"></p>
