@@ -127,6 +127,51 @@ test.describe('blink artwork', () => {
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) test.describe(`automatic effects with ${reducedMotion}`, () => {
   test.use({ reducedMotion });
+  test('a glance finishes its return before another requested animation starts', async ({ page }) => {
+    const errors = await openMobile(page);
+    await page.clock.runFor(1000);
+    await page.evaluate(() => document.documentElement.style.setProperty('--blink-duration', '1200ms'));
+    const { centerMs, holdMs, returnMs } = VIEWER_SETTINGS.glance;
+    for (const next of ['blink', 'all-blink']) {
+      await page.evaluate(() => document.querySelector<HTMLButtonElement>('[data-effect="glance"]')!.click());
+      await page.clock.runFor(32);
+      const eye = page.locator('.eye-tile[data-idle-effect="glance"]');
+      await expect(eye).toHaveCount(1);
+      const coordinate = await eye.evaluate(element => ({ column: (element as HTMLElement).dataset.column, row: (element as HTMLElement).dataset.row }));
+      const tracked = page.locator(`[data-column="${coordinate.column}"][data-row="${coordinate.row}"]`);
+      const displacement = () => tracked.evaluate(element => {
+        const tile = element as HTMLElement & { _imageX: number; _imageY: number };
+        return Math.hypot(tile._imageX, tile._imageY);
+      });
+      const original = (await tracked.getAttribute('data-image-id'))!;
+      const before = await displacement();
+      expect(before).toBeGreaterThan(3);
+      await page.clock.runFor(centerMs / 2);
+      const halfway = await displacement();
+      expect(halfway).toBeGreaterThan(before * .4);
+      expect(halfway).toBeLessThan(before * .6);
+      await page.evaluate(next => document.querySelector<HTMLButtonElement>(`[data-effect="${next}"]`)!.click(), next);
+      await page.clock.runFor(32);
+      await expect(tracked).toHaveAttribute('data-idle-effect', 'glance');
+      await expect(page.locator('.eye-blink')).toHaveCount(0);
+      expect(await displacement()).toBeLessThanOrEqual(halfway);
+      await page.clock.runFor(centerMs / 2 + 32);
+      expect(await displacement()).toBeLessThan(.1);
+      await page.clock.runFor(holdMs - 64 + returnMs / 2);
+      expect(await displacement()).toBeGreaterThan(before * .3);
+      expect(await displacement()).toBeLessThan(before * .7);
+      await expect(tracked).toHaveAttribute('data-image-id', original);
+      await page.clock.runFor(returnMs / 2 + 64);
+      expect(await displacement()).toBeCloseTo(before, 1);
+      await expect(page.locator('.eye-tile[data-idle-effect="glance"]')).toHaveCount(0);
+      if (next === 'blink') await expect(page.locator('.eye-tile[data-idle-effect="blink"]')).toHaveCount(1);
+      else await expect(page.locator('#field')).toHaveAttribute('data-idle-effect', 'all-blink');
+      await page.clock.runFor(1600);
+      await expect(page.locator('[data-idle-effect], .eye-blink')).toHaveCount(0);
+    }
+    expect(errors).toEqual([]);
+  });
+
   test('all eyes blink and exchange together after the first minute, including during panning and resizing', async ({ page }, testInfo) => {
     const errors = await openMobile(page);
     await page.evaluate(() => document.documentElement.style.setProperty('--blink-duration', '2000ms'));

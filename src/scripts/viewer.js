@@ -163,9 +163,12 @@ function scheduleIdleLottery() {
 
 function drawIdleLottery(time) {
   if (!idleLotteryPending && !debugEffectRequest) return;
+  idleLotteryPending = false;
+  // Keep the complete center/hold/return motion intact. A debug request waits
+  // for its final frame and then uses the same serial path as automatic effects.
+  if (debugEffectRequest && idleEffect?.type === 'glance') return;
   const requested = debugEffectRequest;
   debugEffectRequest = '';
-  idleLotteryPending = false;
   if (requested) endIdleEffect();
   if (idleEffect || !collectionReady || loadingScreen?.isConnected || (!requested && idleMotionSuppressed())) return;
   // One timer and one active effect. On the same draw, the all-eye blink takes
@@ -864,6 +867,7 @@ debugPanel?.addEventListener('click', event => {
   const button = event.target.closest('button[data-effect]');
   if (!button) return;
   debugEffectRequest = button.dataset.effect;
+  if (idleEffect?.type === 'glance') debugStatus.textContent = `視線を元に戻した後に「${button.textContent.trim()}」を実行します。`;
   requestFrame();
 });
 document.getElementById('debug-blink-duration')?.addEventListener('input', event => {

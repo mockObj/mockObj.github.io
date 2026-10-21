@@ -203,7 +203,7 @@ test('local debug controls run both effects immediately while inertia keeps movi
 });
 
 async function verifyEligibleEyes(page: Page) {
-  const errors = await openField(page);
+  const errors = await openField(page, false, { startDelayMs: 3600000 });
   for (const pan of [false, true]) {
     if (pan) {
       await page.locator('#field').dispatchEvent('wheel', { deltaY: 125, deltaX: 70 });
@@ -221,6 +221,9 @@ async function verifyEligibleEyes(page: Page) {
       await page.clock.runFor(16);
       await expect(page.locator(`[data-column="${eyes[rank].column}"][data-row="${eyes[rank].row}"]`)).toHaveAttribute('data-idle-effect', 'glance');
       await expect(page.locator('[data-idle-effect]')).toHaveCount(1);
+      // Finish the previous motion before requesting the next eligible eye.
+      // Only the final pose matters here; skip intermediate animation frames.
+      await page.clock.fastForward(VIEWER_SETTINGS.glance.centerMs + VIEWER_SETTINGS.glance.holdMs + VIEWER_SETTINGS.glance.returnMs + 32);
     }
   }
   expect(errors).toEqual([]);
